@@ -17,18 +17,16 @@ public class DemoR2dbcApplication {
 	}
 	
 	@Bean
-	public CommandLineRunner initDatabase(PopulatorService globalService) {
+	public CommandLineRunner initDatabase(PopulatorService popService,PersonService personService) {
 		return (args)->{
 		  
 		
 			
 //		  Flux.just(new WmTag("Science"),new WmTag("Computer"),new WmTag("Lithum"))
-//		  .flatMap(e->globalService.save(e)).subscribe()
+//		  .flatMap(e->personService.save(e)).subscribe()
 //		  ;
 		   
-			//globalService.InitData().subscribe(x->System.out.println(x));
-			//globalService.updateDb().subscribe(x->System.out.println(x));
-			//globalService.patchDb().subscribe(x->System.out.println(x));
+			//popService.InitData().subscribe(x->System.out.println(x));
 		  
 		
 		};

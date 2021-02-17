@@ -1,0 +1,11 @@
+alter table groupe drop constraint FKp59mphxh8am13rry5wrxvgn1c;
+alter table job drop constraint FK3ty91eq8oeii1l7u0s71d9i47;
+alter table todo drop constraint FKt4goeu4k0iv12fofnnc9cnw7o;
+alter table todo_tag drop constraint FK3w1xrmwsoykr0mqgah1yhfjqt;
+alter table todo_tag drop constraint FKjb2k1x5n6dkhyjpht94d3ynnu;
+drop table if exists groupe cascade;
+drop table if exists job cascade;
+drop table if exists person cascade;
+drop table if exists tag cascade;
+drop table if exists todo cascade;
+drop table if exists todo_tag cascade;
