@@ -32,6 +32,9 @@ import com.example.demor2dbc.entities.write.WmPerson;
 import com.example.demor2dbc.entities.write.WmTodo;
 import com.example.demor2dbc.entities.write.WmTodoTag;
 import com.example.demor2dbc.exceptions.IllegalAccessOperation;
+import com.example.demor2dbc.mappers.JobCloneMapper;
+import com.example.demor2dbc.mappers.PersonCloneMapper;
+import com.example.demor2dbc.mappers.TodoCloneMapper;
 import com.example.demor2dbc.repositories.PersonReactRepo;
 
 import reactor.core.publisher.Flux;
@@ -62,19 +65,21 @@ public class PersonService {
 	private Flux<Person> deepMap(Flux<Person> people) {
 		Assert.notNull(people, "people mustn't be null");
 
-		return people.concatMap(dev -> {
-			Mono<Person> map = repo.findJobsByDeveloperId(dev.getId()).transform(fjobs -> deepMapJobs(fjobs))
+		return people.concatMap(person -> {
+			Mono<Person> map = repo.findJobsByDeveloperId(person.getId()).transform(fjobs -> deepMapJobs(fjobs))
 					.collect(Collectors.toSet()).map(x -> {
-						dev.setJobs(x);
-						return dev;
+						Person newPerson = PersonCloneMapper.INSTANCE.clone(person);
+						newPerson.setJobs(x);
+						return newPerson;
 					});
 			return map;
 		}
 
-		).concatMap(dev -> repo.findTodosByPersonId(dev.getId()).transform(todos -> deepMapTodos(todos))
+		).concatMap(person -> repo.findTodosByPersonId(person.getId()).transform(todos -> deepMapTodos(todos))
 				.collect(Collectors.toSet()).map(x -> {
-					dev.setTodos(x);
-					return dev;
+					Person newPerson = PersonCloneMapper.INSTANCE.clone(person);
+					newPerson.setTodos(x);
+					return newPerson;
 				}));
 	}
 
@@ -85,8 +90,9 @@ public class PersonService {
 				acc.add(val);
 				return acc;
 			}).map(x -> {
-				job.setGroups(x);
-				return job;
+				Job newJob=JobCloneMapper.INSTANCE.clone(job);
+				newJob.setGroups(x);
+				return newJob;
 			});
 		});
 	}
@@ -95,9 +101,10 @@ public class PersonService {
 
 		return todos.flatMap(todo -> {
 			return repo.findTagsByTodoId(todo.getId()).collect(Collectors.toSet()).map(x -> {
-				todo.setTags(x);
+				Todo newTodo=TodoCloneMapper.INSTANCE.clone(todo);
+				newTodo.setTags(x);
 				;
-				return todo;
+				return newTodo;
 			});
 		});
 	}
@@ -199,8 +206,9 @@ public class PersonService {
 			Function<Integer, Flux<WmTodo>> f = i -> Flux.fromIterable(todos)
 					.flatMap(t -> saveOrUpdate(mapToWmTodo(t, wmp), usePatch, new Fk("person_id", wmp.getId()))
 							.flatMapMany(wmt -> saveOrUpdateToDoTag(t.getTags(), wmt, usePatch).map(wmtdtg -> wmt)
-									.defaultIfEmpty(wmt)))
-					.distinct();
+									.defaultIfEmpty(wmt))
+							.distinct())
+					;
 			fWmTodo = markAsDeleted.flatMapMany(f);
 		}else {
 			fWmTodo = markAsDeleted.flatMapMany(x->Flux.empty());
