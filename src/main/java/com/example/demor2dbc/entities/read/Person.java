@@ -4,20 +4,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.MappedCollection;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-
-@JsonInclude(Include.NON_NULL)
 public class Person {
 	@Id
 	private Long id;
 	private String name;
-	//work only on spring data jdbc
-	//@MappedCollection(idColumn = "developer_id")
 	private String address;
-	
+	private String userId;
 	private Set<Job> jobs;
 
 	private Set<Todo> todos;
@@ -41,7 +34,7 @@ public class Person {
 		if (jobs == null) {
 			return new HashSet<>();
 		}
-		
+
 		return jobs;
 	}
 
@@ -53,7 +46,7 @@ public class Person {
 		if (todos == null) {
 			return new HashSet<>();
 		}
-		
+
 		return todos;
 	}
 
@@ -83,6 +76,14 @@ public class Person {
 
 	public void setAddress(String address) {
 		this.address = address;
+	}
+
+	public String getUserId() {
+		return userId;
+	}
+
+	public void setUserId(String userId) {
+		this.userId = userId;
 	}
 
 }

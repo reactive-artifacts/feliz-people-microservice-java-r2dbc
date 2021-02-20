@@ -1,4 +1,4 @@
-package com.example.demor2dbc.dto.http.response;
+package com.example.demor2dbc.web.dto.response;
 
 public class HrTagDto extends HrEntityDto {
 	private String name;

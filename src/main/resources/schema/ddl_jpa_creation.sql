@@ -1,12 +1,13 @@
 create table groupe (id  bigserial not null, deleted boolean, name varchar(255), job_id int8, primary key (id));
 create table job (id  bigserial not null, deleted boolean, location varchar(255), name varchar(255), developer_id int8, primary key (id));
-create table person (id  bigserial not null, deleted boolean, address varchar(255), name varchar(255), primary key (id));
+create table person (id  bigserial not null, deleted boolean, address varchar(255), name varchar(255), user_id varchar(255), primary key (id));
 create table tag (id  bigserial not null, deleted boolean, name varchar(255), primary key (id));
 create table todo (id  bigserial not null, deleted boolean, description varchar(255), details varchar(255), done boolean not null, person_id int8, primary key (id));
 create table todo_tag (id  bigserial not null, deleted boolean, tag_id int8, todo_id int8, primary key (id));
 create index IDXqu4q173yq0bh6v87k1g183ef on groupe (deleted);
 create index IDXrvoysqqe7do8otuvjpcw6va2a on job (deleted);
 create index IDXnvjyj0q3tytu8omupk3c1lqo3 on person (deleted);
+create index IDXet9lnr2bq21k5tqy3q1k4kq6t on person (user_id);
 create index IDX7d5pwoew1vd8v3y79wtlp283c on tag (deleted);
 create index IDXqtuauvw3iuf4ejn25n9psw35a on todo (deleted);
 create index IDXe41jw46fgjjqv2wsh0ptv0o1m on todo_tag (deleted);

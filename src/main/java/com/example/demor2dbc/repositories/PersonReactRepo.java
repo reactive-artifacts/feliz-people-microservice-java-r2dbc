@@ -15,23 +15,30 @@ import reactor.core.publisher.Mono;
 
 public interface PersonReactRepo extends ReactiveCrudRepository<Person, Long> {
 	
-	
-	
-	
-	@Query("select distinct p.* "
+	 static final String SELECT_PEOPLE="select distinct p.* "
 			+ "from person p "
 			+ "left join job j on (p.id=j.developer_id) "
 			+ "left join todo td on (p.id=td.person_id)"
-			+ "left join groupe g on (j.id=g.job_id) "
+			+ "left join groupe g on (j.id=g.job_id) ";
+	
+	
+	@Query(SELECT_PEOPLE
 			+ "where 1=1 and p.deleted is not true order by p.id asc limit :limit offset :offset ")
 	public Flux<Person> findAllPeople(@Param("limit")int limit,@Param("offset") long offset);
+	
+	@Query(SELECT_PEOPLE
+			+ "where p.user_id=:userId and p.deleted is not true order by p.id asc limit :limit offset :offset ")
+	public Flux<Person> findAllPeople(@Param("userId") String userId,@Param("limit")int limit,@Param("offset") long offset);
 	
 	@Query("select  p.* "
 			+ "from person p "
 			+ "where p.id=:id and p.deleted is not true")
 	public Mono<Person> findPersonById(long id);
 	
-	
+	@Query("select  p.* "
+			+ "from person p "
+			+ "where p.id=:id and p.user_id=:userId and p.deleted is not true")
+	public Mono<Person> findPersonByIdAndUserId(long id, String userId);
 	
 	
 	@Query("select j.id,j.name,j.location from Job j where j.developer_id=:personId and j.deleted is not true")
@@ -47,6 +54,10 @@ public interface PersonReactRepo extends ReactiveCrudRepository<Person, Long> {
 			+ "inner join todo_tag tt on (tg.id=tt.tag_id) "
 			+ "where tg.deleted is not true and tt.todo_id=:todoId and tt.deleted is not true")
 	public Flux<Tag> findTagsByTodoId(Long todoId);
+	
+	
 	// update example
 //update groupe g set name='Group1' from job j inner join person p on (p.id=j.developer_id) where g.job_id=j.id and  j.name=''  
+
+	
 }

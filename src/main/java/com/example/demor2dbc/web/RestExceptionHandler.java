@@ -1,4 +1,4 @@
-package com.example.demor2dbc;
+package com.example.demor2dbc.web;
 
 import java.util.Date;
 
@@ -7,9 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.reactive.function.server.ServerRequest;
 
-import com.example.demor2dbc.exceptions.PersonNotFoundException;
+import com.example.demor2dbc.exceptions.ErrorMessage;
+import com.example.demor2dbc.exceptions.ForbiddenAccessException;
+import com.example.demor2dbc.exceptions.ResourceNotFoundException;
+import com.example.demor2dbc.exceptions.UnAuthorizedAccessException;
 
 import reactor.core.publisher.Mono;
 
@@ -32,15 +34,38 @@ public class RestExceptionHandler {
   }
   
   
-  @ExceptionHandler(value = {PersonNotFoundException.class})
+  @ExceptionHandler(value = {ResourceNotFoundException.class})
   @ResponseStatus(value = HttpStatus.BAD_REQUEST)
   public Mono<ErrorMessage> PersonNotFoundExceptionHandler(Exception ex) {
     ErrorMessage message = new ErrorMessage(
         HttpStatus.NOT_FOUND.value(),
         new Date(),
-        "Person not found",
+        "Resource not found",
         null);
     
     return Mono.just(message);
+  }
+  
+  @ExceptionHandler(value = {UnAuthorizedAccessException.class})
+  @ResponseStatus(value = HttpStatus.UNAUTHORIZED)
+  public Mono<ErrorMessage> UnAuthorizedAccessExceptionHandler(Exception ex) {
+    ErrorMessage message = new ErrorMessage(
+        HttpStatus.UNAUTHORIZED.value(),
+        new Date(),
+        "UnAuthorized access",
+        null);
+    
+    return Mono.just(message);
+  }
+  @ExceptionHandler(value = {ForbiddenAccessException.class})
+  @ResponseStatus(value = HttpStatus.FORBIDDEN)
+  public Mono<ErrorMessage> ForbiddenAccessExceptionHandler(Exception ex) {
+	  ErrorMessage message = new ErrorMessage(
+			  HttpStatus.FORBIDDEN.value(),
+			  new Date(),
+			  "Forbidden access",
+			  null);
+	  
+	  return Mono.just(message);
   }
 }

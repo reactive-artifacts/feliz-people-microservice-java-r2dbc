@@ -14,6 +14,7 @@ public class WmPerson extends WmEntity {
 
 	private String name;
 	private String address;
+	private String userId;
 
 	public String getName() {
 		return name;
@@ -47,6 +48,14 @@ public class WmPerson extends WmEntity {
 		columnsToUpdate.put(SqlIdentifier.unquoted("name"), getName());
 		columnsToUpdate.put(SqlIdentifier.unquoted("address"), getAddress());
 
+	}
+
+	public String getUserId() {
+		return userId;
+	}
+
+	public void setUserId(String userId) {
+		this.userId = userId;
 	}
 
 }

@@ -1,0 +1,19 @@
+logging:
+    level:
+        org:
+            springframework: DEBUG
+spring:
+    r2dbc:
+        password: mysecretpassword
+        url: r2dbc:pool:postgres://localhost:5432/pizzashop
+        username: postgres
+    security:
+     oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: http://localhost:9080/auth/realms/demo
+        registration:
+          oidc:
+            client-id: webappy
+            client-secret: 939b9997-21c7-4798-aa11-34534c57367b

@@ -1,4 +1,4 @@
-package com.example.demor2dbc.dto.http.response;
+package com.example.demor2dbc.web.dto.response;
 
 import java.util.Set;
 

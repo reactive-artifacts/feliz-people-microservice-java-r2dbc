@@ -2,12 +2,16 @@ package com.example.demor2dbc.dto.input;
 
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 public class InPersonDto {
 	private Long id;
 	private String name;
 	private String address;
 	private Set<InJobDto> jobs;
-
+    @JsonIgnore
+	private String userId;
+	
 	private Set<InTodoDto> todos;
   
 	
@@ -50,5 +54,15 @@ public class InPersonDto {
 	public void setTodos(Set<InTodoDto> todos) {
 		this.todos = todos;
 	}
+	
+	public String getUserId() {
+		return userId;
+	}
+
+	@JsonIgnore
+	public void setUserId(String userId) {
+		this.userId = userId;
+	}
+
 
 }

@@ -14,13 +14,13 @@ import com.example.demor2dbc.dto.input.InJobDto;
 import com.example.demor2dbc.dto.input.InPersonDto;
 import com.example.demor2dbc.dto.input.InTagDto;
 import com.example.demor2dbc.dto.input.InTodoDto;
-import com.example.demor2dbc.entities.read.Tag;
-import com.example.demor2dbc.entities.read.Todo;
 import com.example.demor2dbc.entities.write.WmPerson;
+import com.example.demor2dbc.security.UserDto;
 import com.example.demor2dbc.statics.GroupName;
 import com.example.demor2dbc.statics.JobName;
 
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Service
 public class PopulatorService {
@@ -29,6 +29,7 @@ public class PopulatorService {
 
 	@Transactional
 	public Flux<WmPerson> InitData() {
+		UserDto user=new UserDto("60fb5cd7-786b-4450-8938-d4ec0e212eb8",null,null,null);
 		List<InPersonDto> pple1 = new ArrayList<>();
 		InPersonDto p = new InPersonDto();
 		pple1.add(p);
@@ -92,6 +93,6 @@ public class PopulatorService {
 		todo.setDone(true);
 		todos.add(todo);
 		p.setTodos(todos);
-		return personService.createPeople(Flux.fromIterable(pple1));
+		return personService.createPeople(Flux.fromIterable(pple1),Mono.just(user));
 	}
 }

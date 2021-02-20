@@ -1,7 +1,10 @@
-package com.example.demor2dbc;
+package com.example.demor2dbc.exceptions;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+@JsonInclude(Include.NON_NULL)
 public class ErrorMessage {
   private int statusCode;
   private Date timestamp;

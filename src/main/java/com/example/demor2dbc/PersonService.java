@@ -36,6 +36,7 @@ import com.example.demor2dbc.mappers.JobCloneMapper;
 import com.example.demor2dbc.mappers.PersonCloneMapper;
 import com.example.demor2dbc.mappers.TodoCloneMapper;
 import com.example.demor2dbc.repositories.PersonReactRepo;
+import com.example.demor2dbc.security.UserDto;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -54,13 +55,20 @@ public class PersonService {
 
 	@Transactional(readOnly = true)
 	public Flux<Person> readPeople(Pageable page) {
-		return deepMap(findPeople(page));
+		return findPeople(page);
 	}
 
 	@Transactional(readOnly = true)
-	public Mono<Person> findPersonById(long id) {
+	public Mono<Person> findPerson(long id) {
 		return deepMap(repo.findPersonById(id).flux()).singleOrEmpty();
 	}
+		
+	
+	@Transactional(readOnly = true)
+	public Flux<Person> readPeople(String userId,Pageable page) {
+		return deepMap(findPeople(userId,page));
+	}
+
 
 	private Flux<Person> deepMap(Flux<Person> people) {
 		Assert.notNull(people, "people mustn't be null");
@@ -90,7 +98,7 @@ public class PersonService {
 				acc.add(val);
 				return acc;
 			}).map(x -> {
-				Job newJob=JobCloneMapper.INSTANCE.clone(job);
+				Job newJob = JobCloneMapper.INSTANCE.clone(job);
 				newJob.setGroups(x);
 				return newJob;
 			});
@@ -101,7 +109,7 @@ public class PersonService {
 
 		return todos.flatMap(todo -> {
 			return repo.findTagsByTodoId(todo.getId()).collect(Collectors.toSet()).map(x -> {
-				Todo newTodo=TodoCloneMapper.INSTANCE.clone(todo);
+				Todo newTodo = TodoCloneMapper.INSTANCE.clone(todo);
 				newTodo.setTags(x);
 				;
 				return newTodo;
@@ -110,16 +118,19 @@ public class PersonService {
 	}
 
 	@Transactional
-	public Mono<WmPerson> createPerson(Mono<InPersonDto> person) {
-
-		return createPeople(person.flux()).singleOrEmpty();
+	public Mono<WmPerson> createPerson(Mono<InPersonDto> person, Mono<UserDto> userDto) {
+       
+		return createPeople(person.flux(), userDto).singleOrEmpty();
 	}
 
 	@Transactional
-	public Flux<WmPerson> createPeople(Flux<InPersonDto> people) {
-
+	public Flux<WmPerson> createPeople(Flux<InPersonDto> people, Mono<UserDto> userDto) {
+		Assert.notNull(people, "people mustn't be null");
+		Assert.notNull(userDto, "userDto mustn't be null");
 		boolean usePatch = false;
-		return people.flatMap(x -> save(mapToWmPerson(x))
+		Flux<InPersonDto> newPeople = combinePeopleWithUser(people, userDto);
+
+		return newPeople.flatMap(x -> save(mapToWmPerson(x))
 				.flatMapMany(
 						wmp -> saveOrUpdateJobs(x.getJobs(), wmp, usePatch).map((WmJob wmj) -> wmp).defaultIfEmpty(wmp))
 				.distinct().flatMap(wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp)
@@ -129,21 +140,45 @@ public class PersonService {
 	}
 
 	@Transactional
-	public Flux<WmPerson> updatePeople(Flux<InPersonDto> people, boolean usePatch) {
+	public Flux<WmPerson> updatePeople(Flux<InPersonDto> people, Mono<UserDto> userDto, boolean usePatch) {
+		Assert.notNull(people, "people mustn't be null");
+		Assert.notNull(userDto, "userDto mustn't be null");
+		
+		Flux<InPersonDto> newPeople = combinePeopleWithUser(people, userDto);
 
-		Flux<WmPerson> savedPeople = people.flatMap(x -> update(mapToWmPerson(x), usePatch).flatMapMany(
-				wmp -> saveOrUpdateJobs(x.getJobs(), wmp, usePatch).map((WmJob wmj) -> wmp).defaultIfEmpty(wmp)
+		Flux<WmPerson> savedPeople = newPeople
+				.flatMap(x -> update(mapToWmPerson(x), usePatch, new Fk<String>("user_id", x.getUserId())).flatMapMany(
+						wmp -> saveOrUpdateJobs(x.getJobs(), wmp, usePatch).map((WmJob wmj) -> wmp).defaultIfEmpty(wmp)
 
-		).distinct().flatMap(
-				wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp).defaultIfEmpty(wmp)
+				).distinct().flatMap(wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp)
+						.defaultIfEmpty(wmp)
 
-		).distinct());
+				).distinct());
 		return savedPeople;
 
 	}
 
+	private Flux<InPersonDto> combinePeopleWithUser(Flux<InPersonDto> people, Mono<UserDto> userDto) {
+		Assert.notNull(people, "people mustn't be null");
+		Assert.notNull(userDto, "userDto mustn't be null");
+		
+		Mono<UserDto> currentUser = userDto.switchIfEmpty(
+				Mono.error(new IllegalArgumentException("Cannot attach flux of people to a non existing user")))
+				;
+        //the order between currentUser et people is very important ...
+		Flux<InPersonDto> newPeople = Flux.combineLatest(currentUser, people, (user, inPerson) -> {
+			inPerson.setUserId(user.getSub());
+			return inPerson;
+		});
+		return newPeople;
+	}
+
 	private Flux<Person> findPeople(Pageable page) {
 		return repo.findAllPeople(page.getPageSize(), page.getOffset());
+	}
+	
+	private Flux<Person> findPeople(String userId,Pageable page) {
+		return repo.findAllPeople(userId,page.getPageSize(), page.getOffset());
 	}
 
 	Flux<WmJob> saveOrUpdateJobs(Set<InJobDto> jobs, WmPerson wmp, boolean usePatch) {
@@ -157,7 +192,7 @@ public class PersonService {
 			Function<Integer, Flux<WmJob>> f = i -> Flux.fromIterable(jobs).flatMap(j -> {
 				WmJob mapToWmJob = mapToWmJob(j, wmp);
 				mapToWmJob.setDeleted(false);
-				return saveOrUpdate(mapToWmJob, usePatch, new Fk("developer_id", wmp.getId()))
+				return saveOrUpdate(mapToWmJob, usePatch, new Fk<Long>("developer_id", wmp.getId()))
 						.flatMapMany(wmj -> saveOrUpdateGroups(j.getGroups(), wmj, usePatch).map((WmGroup wmg) -> wmj)
 								.defaultIfEmpty(wmj)
 
@@ -168,8 +203,8 @@ public class PersonService {
 
 			);
 			fWmJob = markAsDeleted.flatMapMany(f);
-		}else {
-			fWmJob = markAsDeleted.flatMapMany(x->Flux.empty());
+		} else {
+			fWmJob = markAsDeleted.flatMapMany(x -> Flux.empty());
 		}
 		return fWmJob;
 	}
@@ -185,11 +220,11 @@ public class PersonService {
 			Function<Integer, Flux<WmGroup>> f = i -> Flux.fromIterable(groups).flatMap(gr -> {
 				WmGroup mapToWmGroup = mapToWmGroup(gr, wmj);
 				mapToWmGroup.setDeleted(false);
-				return saveOrUpdate(mapToWmGroup, usePatch, new Fk("job_id", wmj.getId()));
+				return saveOrUpdate(mapToWmGroup, usePatch, new Fk<Long>("job_id", wmj.getId()));
 			});
 			fWmGroup = markAsDeleted.flatMapMany(f);
-		}else {
-			fWmGroup = markAsDeleted.flatMapMany(x->Flux.empty());
+		} else {
+			fWmGroup = markAsDeleted.flatMapMany(x -> Flux.empty());
 		}
 		return fWmGroup;
 
@@ -204,14 +239,13 @@ public class PersonService {
 		}
 		if (todos != null) {
 			Function<Integer, Flux<WmTodo>> f = i -> Flux.fromIterable(todos)
-					.flatMap(t -> saveOrUpdate(mapToWmTodo(t, wmp), usePatch, new Fk("person_id", wmp.getId()))
+					.flatMap(t -> saveOrUpdate(mapToWmTodo(t, wmp), usePatch, new Fk<Long>("person_id", wmp.getId()))
 							.flatMapMany(wmt -> saveOrUpdateToDoTag(t.getTags(), wmt, usePatch).map(wmtdtg -> wmt)
 									.defaultIfEmpty(wmt))
-							.distinct())
-					;
+							.distinct());
 			fWmTodo = markAsDeleted.flatMapMany(f);
-		}else {
-			fWmTodo = markAsDeleted.flatMapMany(x->Flux.empty());
+		} else {
+			fWmTodo = markAsDeleted.flatMapMany(x -> Flux.empty());
 		}
 		return fWmTodo;
 	}
@@ -228,8 +262,8 @@ public class PersonService {
 					.flatMap(tag -> save(mapToWmTodoTag(tag, wmt)));
 
 			fWmTodoTag = markAsDeleted.flatMapMany(f);
-		}else {
-			fWmTodoTag = markAsDeleted.flatMapMany(x->Flux.empty());
+		} else {
+			fWmTodoTag = markAsDeleted.flatMapMany(x -> Flux.empty());
 		}
 		return fWmTodoTag;
 
@@ -240,6 +274,7 @@ public class PersonService {
 		person.setId(p.getId());
 		person.setName(p.getName());
 		person.setAddress(p.getAddress());
+		person.setUserId(p.getUserId());
 		return person;
 	}
 
@@ -321,11 +356,11 @@ public class PersonService {
 		return Flux.just(e);
 	}
 
-	private class Fk {
+	private class Fk<T> {
 		private String columnName;
-		private Long value;
+		private T value;
 
-		public Fk(String columnName, Long value) {
+		public Fk(String columnName, T value) {
 			super();
 			this.columnName = columnName;
 			this.value = value;
@@ -335,7 +370,7 @@ public class PersonService {
 			return columnName;
 		}
 
-		public Long getValue() {
+		public T getValue() {
 			return value;
 		}
 
