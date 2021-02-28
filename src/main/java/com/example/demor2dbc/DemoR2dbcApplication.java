@@ -70,6 +70,7 @@ public class DemoR2dbcApplication {
 	        .formLogin().disable()
 	        .authorizeExchange()
 	          .pathMatchers(HttpMethod.OPTIONS).permitAll()
+	          .pathMatchers("/actuator/**").permitAll()
 	          .pathMatchers("/lorem/**").permitAll()
 	          .pathMatchers("/people/**").hasAuthority("ROLE_USER")
 	          //.pathMatchers("/admin").hasAuthority("ADMIN")
@@ -96,7 +97,7 @@ public class DemoR2dbcApplication {
 	
 	@Bean
 	//https://github.com/spring-projects/spring-security/issues/6123
-	//ligne 3282 ServerHttpSecurity
+	//Go to line 3282 ServerHttpSecurity
     public ReactiveOAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
         final OidcReactiveOAuth2UserService delegate = new OidcReactiveOAuth2UserService();
 

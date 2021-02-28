@@ -7,6 +7,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.relational.core.query.Criteria;
@@ -14,6 +15,8 @@ import org.springframework.data.relational.core.query.Query;
 import org.springframework.data.relational.core.query.Update;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionSynchronization;
+import org.springframework.transaction.reactive.TransactionSynchronizationManager;
 import org.springframework.util.Assert;
 
 import com.example.demor2dbc.dto.input.InGroupDto;
@@ -31,6 +34,7 @@ import com.example.demor2dbc.entities.write.WmJob;
 import com.example.demor2dbc.entities.write.WmPerson;
 import com.example.demor2dbc.entities.write.WmTodo;
 import com.example.demor2dbc.entities.write.WmTodoTag;
+import com.example.demor2dbc.events.PersonCreatedEvent;
 import com.example.demor2dbc.exceptions.IllegalAccessOperation;
 import com.example.demor2dbc.mappers.JobCloneMapper;
 import com.example.demor2dbc.mappers.PersonCloneMapper;
@@ -52,6 +56,9 @@ public class PersonService {
 	private R2dbcEntityTemplate template;
 	@Autowired
 	private PersonReactRepo repo;
+	
+	@Autowired
+	private ApplicationEventPublisher publisher;
 
 	@Transactional(readOnly = true)
 	public Flux<Person> readPeople(Pageable page) {
@@ -63,9 +70,11 @@ public class PersonService {
 		return deepMap(repo.findPersonById(id).flux()).singleOrEmpty();
 	}
 		
-	
+//https://github.com/pioardi/Spring-Reactive/tree/master/src/main/java/com/aardizio
+//https://staging--okta-blog.netlify.app/blog/2018/09/24/reactive-apis-with-spring-webflux	
 	@Transactional(readOnly = true)
 	public Flux<Person> readPeople(String userId,Pageable page) {
+		
 		return deepMap(findPeople(userId,page));
 	}
 
@@ -129,13 +138,25 @@ public class PersonService {
 		Assert.notNull(userDto, "userDto mustn't be null");
 		boolean usePatch = false;
 		Flux<InPersonDto> newPeople = combinePeopleWithUser(people, userDto);
-
-		return newPeople.flatMap(x -> save(mapToWmPerson(x))
+		
+		
+		Flux<WmPerson> wmpeople = newPeople.flatMap(x -> save(mapToWmPerson(x))
 				.flatMapMany(
 						wmp -> saveOrUpdateJobs(x.getJobs(), wmp, usePatch).map((WmJob wmj) -> wmp).defaultIfEmpty(wmp))
 				.distinct().flatMap(wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp)
 						.defaultIfEmpty(wmp))
 				.distinct());
+		return wmpeople.flatMap(wmp->TransactionSynchronizationManager.forCurrentTransaction().map(tm->{
+			tm.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public Mono<Void> afterCompletion(int status){
+					publisher.publishEvent(PersonCreatedEvent.of(wmp));
+					return Mono.empty();
+				}
+			
+			});
+			return wmp;
+			}));
 
 	}
 

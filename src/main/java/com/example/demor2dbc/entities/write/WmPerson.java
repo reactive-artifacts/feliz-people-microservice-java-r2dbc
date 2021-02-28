@@ -8,7 +8,6 @@ import org.springframework.data.relational.core.sql.SqlIdentifier;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
-@JsonInclude(Include.NON_NULL)
 @Table("person")
 public class WmPerson extends WmEntity {
 
@@ -57,5 +56,12 @@ public class WmPerson extends WmEntity {
 	public void setUserId(String userId) {
 		this.userId = userId;
 	}
+
+	@Override
+	public String toString() {
+		return "WmPerson [name=" + name + ", address=" + address + ", userId=" + userId + "]";
+	}
+	
+	
 
 }

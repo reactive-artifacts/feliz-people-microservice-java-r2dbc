@@ -15,9 +15,8 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
-import com.nimbusds.jose.shaded.json.JSONArray;
-import com.nimbusds.jose.shaded.json.JSONObject;
-
+import net.minidev.json.JSONArray;
+import net.minidev.json.JSONObject;
 import reactor.core.publisher.Mono;
 
 /**
