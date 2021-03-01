@@ -9,7 +9,7 @@ management:
 logging:
     level:
         org:
-            springframework: DEBUG
+            springframework: INFO
 spring:
     r2dbc:
         password: mysecretpassword

@@ -1,6 +1,5 @@
 package com.example.demor2dbc;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -12,9 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.example.demor2dbc.events.DomainEvent;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
+import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderOptions;
@@ -25,19 +23,14 @@ import reactor.util.Loggers;
 @Component
 public class KafkaSenderService {
 	public static final Logger LOG = Loggers.getLogger(KafkaSenderService.class);
-	 //https://www.baeldung.com/jackson-object-mapper-tutorial
-    
-	@Autowired
-	private ObjectMapper objectMapper;
-   
-
+	
     private  KafkaSender<String, DomainEvent> sender;
 	
     @Autowired
     private SenderOptions<String, DomainEvent> senderOptions;
     
     @Autowired
-    private PersonFluxEventBridge personBridge;
+    private PersonEventFluxBridge personBridge;
     
    
     @PostConstruct
@@ -49,7 +42,13 @@ public class KafkaSenderService {
     }
     
     private Flux<SenderRecord<String, DomainEvent, UUID>> events(){
-    	return Flux.merge(List.of(personBridge.flux())).onErrorContinue((ex,object)->{
+    	return Flux.merge(List.of(personBridge.flux())).
+    			onBackpressureBuffer(255*3, x->{
+    				//making some side effect here 
+    				LOG.warn("Overflow: discarding element from queue="+x);
+    				}, 
+    					BufferOverflowStrategy.DROP_LATEST)
+    			.onErrorContinue((ex,object)->{
     		LOG.error("connot send event to kafka"+object.toString(),ex);
     	}).map(evt->toSenderRecord(evt));
     }
@@ -59,7 +58,7 @@ public class KafkaSenderService {
     	
     	ProducerRecord<String, DomainEvent> producerRecord = new ProducerRecord<String, DomainEvent>
 			(evt.topic(), evt.keyAsUUID().toString(),evt);
-		//https://github.com/spring-projects/spring-kafka/blob/master/spring-kafka/src/main/java/org/springframework/kafka/support/serializer/JsonSerializer.java
+		
 		return SenderRecord.create(producerRecord,UUID.randomUUID());
     }
     

@@ -16,7 +16,7 @@ public class PersonEventListener {
 	// https://docs.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/domain-events-design-implementation
 	// https://github.com/reactor/reactor-kafka/blob/master/reactor-kafka-samples/src/main/java/reactor/kafka/samples/SampleScenarios.java
 	@Autowired
-	PersonFluxEventBridge personBridge;
+	PersonEventFluxBridge personBridge;
 
 	@EventListener
 	public void handlePersonCreatedEvent(PersonCreatedEvent pce) {

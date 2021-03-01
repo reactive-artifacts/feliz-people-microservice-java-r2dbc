@@ -12,9 +12,14 @@ import com.example.demor2dbc.events.PersonEvent;
 import com.example.demor2dbc.exceptions.IllegalAccessOperation;
 
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink.OverflowStrategy;
+import reactor.util.Logger;
+import reactor.util.Loggers;
 
 @Component
-public class PersonFluxEventBridge {
+public class PersonEventFluxBridge {
+	public static final Logger LOG = Loggers.getLogger(KafkaSenderService.class);
+	
 	@Autowired
 	PersonService personService;
 	
@@ -26,12 +31,14 @@ public class PersonFluxEventBridge {
 	public void init() {
 		Flux<PersonEvent> personEventFlux = Flux.create(sink -> {
 			bridge = (PersonEvent event) -> sink.next(event);
-		});
+		},OverflowStrategy.IGNORE);
 		
 		flux = personEventFlux.
 				flatMap(x->personService.findPerson(x.getPersonId()).
 						map(e->x.enrich(e))).cast(DomainEvent.class)
-				.replay(1).autoConnect();
+				.onErrorContinue((ex,object)->{
+		    		LOG.error("connot process event: "+object.toString(),ex);
+		    	}).replay(1).autoConnect();
 	}
 
 
