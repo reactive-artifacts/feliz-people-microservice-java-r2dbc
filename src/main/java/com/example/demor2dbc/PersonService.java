@@ -70,8 +70,6 @@ public class PersonService {
 		return deepMap(repo.findPersonById(id).flux()).singleOrEmpty();
 	}
 		
-//https://github.com/pioardi/Spring-Reactive/tree/master/src/main/java/com/aardizio
-//https://staging--okta-blog.netlify.app/blog/2018/09/24/reactive-apis-with-spring-webflux	
 	@Transactional(readOnly = true)
 	public Flux<Person> readPeople(String userId,Pageable page) {
 		
@@ -207,7 +205,6 @@ public class PersonService {
 		Mono<Integer> markAsDeleted = Mono.empty();
 		Flux<WmJob> fWmJob = Flux.empty();
 		if (!usePatch || jobs != null) {
-			System.out.println("##############################"+wmp.getId());
 			markAsDeleted = template.update(Query.query(Criteria.where("developer_id").is(wmp.getId())),
 					Update.update("deleted", true), WmJob.class);
 		}
