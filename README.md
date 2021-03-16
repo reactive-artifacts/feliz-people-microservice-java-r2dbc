@@ -1,1 +1,2 @@
-# spring-java-r2dbc
+# Feliz People
+Feliz People is a microservice that manages people as part of the open source project Feliz (a Reactive Social Palteforme for connecting people with experts), it is developed with java and the reactive stack of the framework spring (webflux) + reactor + r2dbc, this allowed us to handle higher concurrency with less hardware resources, for now it supports postgreSql or Mysql
