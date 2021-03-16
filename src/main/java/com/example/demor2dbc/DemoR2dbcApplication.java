@@ -72,7 +72,8 @@ public class DemoR2dbcApplication {
 	          .pathMatchers(HttpMethod.OPTIONS).permitAll()
 	          .pathMatchers("/actuator/**").permitAll()
 	          .pathMatchers("/lorem/**").permitAll()
-	          .pathMatchers("/people/**").hasAuthority("ROLE_USER")
+	         // .pathMatchers("/people/**").hasAuthority("ROLE_USER")
+	           .pathMatchers("/people/**").hasAuthority("ROLE_USER")
 	          //.pathMatchers("/admin").hasAuthority("ADMIN")
 	        .anyExchange().denyAll()
 	            ;

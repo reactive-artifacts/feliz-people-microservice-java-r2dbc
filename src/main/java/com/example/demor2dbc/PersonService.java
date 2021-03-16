@@ -82,7 +82,7 @@ public class PersonService {
 	private Flux<Person> deepMap(Flux<Person> people) {
 		Assert.notNull(people, "people mustn't be null");
 
-		return people.concatMap(person -> {
+		return people.buffer().concatMapIterable(Function.identity()).concatMap(person -> {
 			Mono<Person> map = repo.findJobsByDeveloperId(person.getId()).transform(fjobs -> deepMapJobs(fjobs))
 					.collect(Collectors.toSet()).map(x -> {
 						Person newPerson = PersonCloneMapper.INSTANCE.clone(person);
@@ -102,7 +102,7 @@ public class PersonService {
 
 	private Flux<Job> deepMapJobs(Flux<Job> fJobs) {
 
-		return fJobs.flatMap(job -> {
+		return fJobs.buffer().concatMapIterable(Function.identity()).concatMap(job -> {
 			return repo.findGroupsByJobId(job.getId()).reduce(new ArrayList<Group>(), (acc, val) -> {
 				acc.add(val);
 				return acc;
@@ -113,10 +113,9 @@ public class PersonService {
 			});
 		});
 	}
-
 	private Flux<Todo> deepMapTodos(Flux<Todo> todos) {
 
-		return todos.flatMap(todo -> {
+		return todos.buffer().concatMapIterable(Function.identity()).concatMap(todo -> {
 			return repo.findTagsByTodoId(todo.getId()).collect(Collectors.toSet()).map(x -> {
 				Todo newTodo = TodoCloneMapper.INSTANCE.clone(todo);
 				newTodo.setTags(x);
@@ -139,11 +138,14 @@ public class PersonService {
 		boolean usePatch = false;
 		Flux<InPersonDto> newPeople = combinePeopleWithUser(people, userDto);
 		
-		
-		Flux<WmPerson> wmpeople = newPeople.flatMap(x -> save(mapToWmPerson(x))
-				.flatMapMany(
-						wmp -> saveOrUpdateJobs(x.getJobs(), wmp, usePatch).map((WmJob wmj) -> wmp).defaultIfEmpty(wmp))
-				.distinct().flatMap(wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp)
+		// Mariadb can't handle concurrent insert with flatMap , 
+		//i switched to concatMap for all flux when dealing with CUD operations 
+		Flux<WmPerson> wmpeople = newPeople.concatMap(x -> save(mapToWmPerson(x)).
+				flatMapMany(
+						wmp -> saveOrUpdateJobs(x.getJobs(), wmp, usePatch)
+						.map((WmJob wmj) -> wmp).defaultIfEmpty(wmp))
+				.distinct().
+				concatMap(wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp)
 						.defaultIfEmpty(wmp))
 				.distinct());
 		return wmpeople.flatMap(wmp->TransactionSynchronizationManager.forCurrentTransaction().map(tm->{
@@ -168,15 +170,14 @@ public class PersonService {
 		Flux<InPersonDto> newPeople = combinePeopleWithUser(people, userDto);
 
 		Flux<WmPerson> savedPeople = newPeople
-				.flatMap(x -> update(mapToWmPerson(x), usePatch, new Fk<String>("user_id", x.getUserId())).flatMapMany(
+				.concatMap(x -> update(mapToWmPerson(x), usePatch, new Fk<String>("user_id", x.getUserId())).flatMapMany(
 						wmp -> saveOrUpdateJobs(x.getJobs(), wmp, usePatch).map((WmJob wmj) -> wmp).defaultIfEmpty(wmp)
 
-				).distinct().flatMap(wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp)
+				).distinct().concatMap(wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp)
 						.defaultIfEmpty(wmp)
 
 				).distinct());
 		return savedPeople;
-
 	}
 
 	private Flux<InPersonDto> combinePeopleWithUser(Flux<InPersonDto> people, Mono<UserDto> userDto) {
@@ -206,15 +207,16 @@ public class PersonService {
 		Mono<Integer> markAsDeleted = Mono.empty();
 		Flux<WmJob> fWmJob = Flux.empty();
 		if (!usePatch || jobs != null) {
+			System.out.println("##############################"+wmp.getId());
 			markAsDeleted = template.update(Query.query(Criteria.where("developer_id").is(wmp.getId())),
 					Update.update("deleted", true), WmJob.class);
 		}
 		if (jobs != null) {
-			Function<Integer, Flux<WmJob>> f = i -> Flux.fromIterable(jobs).flatMap(j -> {
+			Function<Integer, Flux<WmJob>> f = i -> Flux.fromIterable(jobs).concatMap(j -> {
 				WmJob mapToWmJob = mapToWmJob(j, wmp);
 				mapToWmJob.setDeleted(false);
-				return saveOrUpdate(mapToWmJob, usePatch, new Fk<Long>("developer_id", wmp.getId()))
-						.flatMapMany(wmj -> saveOrUpdateGroups(j.getGroups(), wmj, usePatch).map((WmGroup wmg) -> wmj)
+				return saveOrUpdate(mapToWmJob, usePatch, new Fk<Long>("developer_id", wmp.getId())).
+						flatMapMany(wmj -> saveOrUpdateGroups(j.getGroups(), wmj, usePatch).map((WmGroup wmg) -> wmj)
 								.defaultIfEmpty(wmj)
 
 						)
@@ -238,7 +240,7 @@ public class PersonService {
 					Update.update("deleted", true), WmGroup.class);
 		}
 		if (groups != null) {
-			Function<Integer, Flux<WmGroup>> f = i -> Flux.fromIterable(groups).flatMap(gr -> {
+			Function<Integer, Flux<WmGroup>> f = i -> Flux.fromIterable(groups).concatMap(gr -> {
 				WmGroup mapToWmGroup = mapToWmGroup(gr, wmj);
 				mapToWmGroup.setDeleted(false);
 				return saveOrUpdate(mapToWmGroup, usePatch, new Fk<Long>("job_id", wmj.getId()));
@@ -260,7 +262,7 @@ public class PersonService {
 		}
 		if (todos != null) {
 			Function<Integer, Flux<WmTodo>> f = i -> Flux.fromIterable(todos)
-					.flatMap(t -> saveOrUpdate(mapToWmTodo(t, wmp), usePatch, new Fk<Long>("person_id", wmp.getId()))
+					.concatMap(t -> saveOrUpdate(mapToWmTodo(t, wmp), usePatch, new Fk<Long>("person_id", wmp.getId()))
 							.flatMapMany(wmt -> saveOrUpdateToDoTag(t.getTags(), wmt, usePatch).map(wmtdtg -> wmt)
 									.defaultIfEmpty(wmt))
 							.distinct());
@@ -280,7 +282,7 @@ public class PersonService {
 		}
 		if (tags != null) {
 			Function<Integer, Flux<WmTodoTag>> f = i -> Flux.fromIterable(tags)
-					.flatMap(tag -> save(mapToWmTodoTag(tag, wmt)));
+					.concatMap(tag -> save(mapToWmTodoTag(tag, wmt)));
 
 			fWmTodoTag = markAsDeleted.flatMapMany(f);
 		} else {

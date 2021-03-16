@@ -5,11 +5,10 @@ import java.util.Set;
 public class HrPersonDto extends HrEntityDto {
 	private String name;
 	private String address;
+
 	private Set<HrJobDto> jobs;
 
 	private Set<HrTodoDto> todos;
-  
-	
 
 	public String getName() {
 		return name;

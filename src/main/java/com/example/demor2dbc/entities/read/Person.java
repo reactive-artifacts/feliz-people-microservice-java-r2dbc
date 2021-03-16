@@ -11,6 +11,7 @@ public class Person {
 	private String name;
 	private String address;
 	private String userId;
+
 	private Set<Job> jobs;
 
 	private Set<Todo> todos;

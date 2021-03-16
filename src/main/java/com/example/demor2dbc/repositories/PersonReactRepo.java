@@ -41,10 +41,10 @@ public interface PersonReactRepo extends ReactiveCrudRepository<Person, Long> {
 	public Mono<Person> findPersonByIdAndUserId(long id, String userId);
 	
 	
-	@Query("select j.id,j.name,j.location from Job j where j.developer_id=:personId and j.deleted is not true")
+	@Query("select j.id,j.name,j.location from job j where j.developer_id=:personId and j.deleted is not true")
 	 Flux<Job> findJobsByDeveloperId(Long personId);
 	 
-	 @Query("select t.* from Todo t where t.person_id=:personId and t.deleted is not true")
+	 @Query("select t.* from todo t where t.person_id=:personId and t.deleted is not true")
 	 Flux<Todo> findTodosByPersonId(Long personId);
 	
 	@Query("select g.* from groupe g where g.job_id=:jobId and g.deleted is not true")

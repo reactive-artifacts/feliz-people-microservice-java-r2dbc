@@ -10,19 +10,14 @@ logging:
     level:
         org:
             springframework: DEBUG
-#server:
-#  netty:
-#    connection-timeout: 5
+      
 spring:
     r2dbc:
-#        password: admin
-        password: mysecretpassword
-#        url: r2dbc:postgres://localhost:5433/feliz_people
-        url: r2dbc:postgres://localhost:5432/feliz_people
-        username: postgres
+        url: r2dbc:mariadb://127.0.0.1:3306/feliz_people
+        username: root
+        password: admin
         pool:
-         enabled: true
-         max-acquire-time: 5s  
+         enabled: true  
     security:
      oauth2:
       client:

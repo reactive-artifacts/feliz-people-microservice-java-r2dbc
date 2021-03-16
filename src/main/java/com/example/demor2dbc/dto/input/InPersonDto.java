@@ -8,13 +8,23 @@ public class InPersonDto {
 	private Long id;
 	private String name;
 	private String address;
+
+	private String descript;
+
+	public String getDescript() {
+		return descript;
+	}
+
+	public void setDescript(String descript) {
+		this.descript = descript;
+	}
+
 	private Set<InJobDto> jobs;
-    @JsonIgnore
+	@JsonIgnore
 	private String userId;
-	
+
 	private Set<InTodoDto> todos;
-  
-	
+
 	public Long getId() {
 		return id;
 	}
@@ -54,7 +64,7 @@ public class InPersonDto {
 	public void setTodos(Set<InTodoDto> todos) {
 		this.todos = todos;
 	}
-	
+
 	public String getUserId() {
 		return userId;
 	}
@@ -63,6 +73,5 @@ public class InPersonDto {
 	public void setUserId(String userId) {
 		this.userId = userId;
 	}
-
 
 }
