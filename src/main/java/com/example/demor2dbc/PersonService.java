@@ -36,6 +36,8 @@ import com.example.demor2dbc.entities.write.WmTodo;
 import com.example.demor2dbc.entities.write.WmTodoTag;
 import com.example.demor2dbc.events.PersonCreatedEvent;
 import com.example.demor2dbc.exceptions.IllegalAccessOperation;
+import com.example.demor2dbc.kermoss.saga.PersonGlobalTransactionEvent;
+import com.example.demor2dbc.kermoss.service.BusinessFlow;
 import com.example.demor2dbc.mappers.JobCloneMapper;
 import com.example.demor2dbc.mappers.PersonCloneMapper;
 import com.example.demor2dbc.mappers.TodoCloneMapper;
@@ -60,6 +62,9 @@ public class PersonService {
 	@Autowired
 	private ApplicationEventPublisher publisher;
 
+	@Autowired
+	BusinessFlow bf;
+	
 	@Transactional(readOnly = true)
 	public Flux<Person> readPeople(Pageable page) {
 		return findPeople(page);
@@ -146,17 +151,7 @@ public class PersonService {
 				concatMap(wmp -> saveOrUpdateToDo(x.getTodos(), wmp, usePatch).map((WmTodo wmt) -> wmp)
 						.defaultIfEmpty(wmp))
 				.distinct());
-		return wmpeople.flatMap(wmp->TransactionSynchronizationManager.forCurrentTransaction().map(tm->{
-			tm.registerSynchronization(new TransactionSynchronization() {
-				@Override
-				public Mono<Void> afterCompletion(int status){
-					publisher.publishEvent(PersonCreatedEvent.of(wmp));
-					return Mono.empty();
-				}
-			
-			});
-			return wmp;
-			}));
+		return wmpeople.flatMap(wmp->bf.newGlobalTransaction(new PersonGlobalTransactionEvent(wmp)).map(evt->wmp));
 
 	}
 

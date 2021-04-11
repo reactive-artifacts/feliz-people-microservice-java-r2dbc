@@ -7,9 +7,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
@@ -28,21 +30,26 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
-import com.example.demor2dbc.entities.write.WmTag;
 import com.example.demor2dbc.security.JwtGrantedAuthorityConverter;
 import com.example.demor2dbc.security.SecurityUtils;
 
-import reactor.core.publisher.Flux;
+import reactor.blockhound.BlockHound;
 import reactor.core.publisher.Mono;
 
 @SpringBootApplication
+@EnableAsync
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
+@EnableDiscoveryClient
 public class DemoR2dbcApplication {
 	@Value("${spring.security.oauth2.client.provider.oidc.issuer-uri}")
 	private String issuerUri;
 	
 	public static void main(String[] args) {
+		
+		BlockHound
+//		//.builder().allowBlockingCallsInside("io.netty.resolver.HostsFileParser", "parse")
+		.install();
 		SpringApplication.run(DemoR2dbcApplication.class, args);
 	}
 	

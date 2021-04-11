@@ -1,21 +1,39 @@
 package com.example.demor2dbc.web;
 
 import java.time.Duration;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.client.loadbalancer.reactive.ReactorLoadBalancerExchangeFilterFunction;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.transaction.ReactiveTransactionManager;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.example.demor2dbc.entities.read.Person;
+import com.example.demor2dbc.entities.write.WmPerson;
+import com.example.demor2dbc.kermoss.cache.BubbleCache;
+import com.example.demor2dbc.kermoss.cache.BubbleMessage;
+import com.example.demor2dbc.kermoss.entities.GlobalTransactionStatus;
+import com.example.demor2dbc.kermoss.entities.WmEvent;
+import com.example.demor2dbc.kermoss.entities.WmGlobalTransaction;
+import com.example.demor2dbc.repositories.PersonReactRepo;
 import com.example.demor2dbc.security.SecurityUtils;
 import com.example.demor2dbc.security.UserDto;
+import com.example.demor2dbc.web.dto.response.HrPersonDto;
 
 import reactor.core.Disposable;
 import reactor.core.publisher.BufferOverflowStrategy;
@@ -24,13 +42,32 @@ import reactor.core.publisher.FluxSink.OverflowStrategy;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.Logger;
+import reactor.util.Loggers;
 
 @RestController
 @RequestMapping("/lorem")
 //labo for testing reactor ...
+//http://tutorials.jenkov.com/java-nio/selectors.html
+//https://programmer.group/basic-concepts-of-netty.html
+
+//https://github.com/pioardi/Spring-Reactive/tree/master/src/main/java/com/aardizio
+//https://staging--okta-blog.netlify.app/blog/2018/09/24/reactive-apis-with-spring-webflux	
+
+
+//https://docs.microsoft.com/en-us/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/domain-events-design-implementation
+// https://github.com/reactor/reactor-kafka/blob/master/reactor-kafka-samples/src/main/java/reactor/kafka/samples/SampleScenarios.java	
 //https://akarnokd.blogspot.com/2016/03/operator-fusion-part-1.html
 //https://github.com/spring-projects/spring-kafka/blob/master/spring-kafka/src/main/java/org/springframework/kafka/support/serializer/JsonSerializer.java
 public class LoremController {
+	
+	@Autowired
+	private BubbleCache bc;
+	
+	public static final Logger LOG = Loggers.getLogger(LoremController.class);
+	@Autowired
+	public PersonReactRepo prp;
+	//private final Log logger = LogFactory.getLog(getClass());
 	@GetMapping(value = "/X")
 	public void indeX() {
 		Flux<Long> fallback = Flux.interval(Duration.ofSeconds(2)).takeWhile(i -> i < 5)
@@ -180,4 +217,120 @@ public class LoremController {
 			
 	}
 	
+	@GetMapping("/sh")
+	@ResponseStatus(HttpStatus.OK)
+	public Flux<Person> schedulers() {
+		return Flux.range(1, 20)//.publishOn(Schedulers.parallel())
+	     .concatMap(x->prp.findById(Long.valueOf(x)).subscribeOn(Schedulers.parallel()).doOnNext(e->{
+	    	 //LOG.error("mmmmmm");
+	    	 System.out.println(e+"=="+Thread.currentThread().getName());
+	    	 
+	     }));
+	     
+	     
+	   
+	}
+	
+	
+	@GetMapping("/bc")
+	@ResponseStatus(HttpStatus.OK)
+	public void asBc() {
+	     String uuid=UUID.randomUUID().toString();
+	     Mono<String> just = Mono.just("5");
+		just.flatMap(x->bc.getBubble(x).doOnNext(e->System.out.println("AAAAAAAA"))).
+		switchIfEmpty(just.doOnNext(e->
+		        System.out.println("BBBBBB")).
+				flatMap(x->bc.getOrAddBubble(x,Mono.just(new BubbleMessage(uuid, "xcv"))))) 
+	     .
+	     subscribe(x -> System.out.println("JJJJJJJJJJJJJJ " + x.getGLTX()),
+			error -> System.err.println("Error " + error), () -> System.out.println("JJJJJJJJJJJJJJ+Done"));   
+	}
+	
+	
+	@Autowired
+	private ReactiveTransactionManager tm;
+	@Autowired
+	private R2dbcEntityTemplate template;
+	
+	
+	@GetMapping("/tx")
+	@ResponseStatus(HttpStatus.OK)
+	public void asTx() {
+	  //System.out.println(tm);
+		TransactionalOperator rxtx = TransactionalOperator.create(tm);
+		WmGlobalTransaction wmg = new WmGlobalTransaction();
+		wmg.setStatus(GlobalTransactionStatus.STARTED);
+		wmg.setName("xss6");
+		wmg.setId(UUID.randomUUID().toString());
+		WmEvent wmEvent = new WmEvent();
+		wmEvent.setId(UUID.randomUUID().toString());
+		wmEvent.setName("ev6");
+		
+		
+		Mono<WmGlobalTransaction> as = template.insert(wmg).doOnNext(x->{
+			//throw new RuntimeException("VVVX");
+			}).
+		as(rxtx::transactional);
+		Mono<WmEvent> as2 = template.insert(wmEvent).doOnNext(x->{
+			throw new RuntimeException("VVVX");
+			
+		}).as(rxtx::transactional);
+		
+		
+		as2.subscribe();
+		as.subscribe();
+		
+		
+		
+	}
+	
+	
+	@Autowired
+    private ReactorLoadBalancerExchangeFilterFunction lbFunction;
+	
+	
+	@GetMapping("/wc")
+	@ResponseStatus(HttpStatus.OK)
+	public Mono<String> doOtherStuff() {
+        return WebClient.builder().baseUrl("http://feliz-people")
+            .filter(lbFunction)
+            .build()
+            .get()
+            .uri("/lorem/stg")
+            .retrieve()
+            .bodyToMono(String.class);
+    }
+	
+	
+	@GetMapping("/wcp")
+	@ResponseStatus(HttpStatus.OK)
+	public Mono<HttpStatus> doOtherPost() {
+		HrPersonDto wmp = new HrPersonDto();
+        wmp.setId(1L);
+        wmp.setAddress("as cv cbb");
+        
+		return  WebClient.builder().baseUrl("http://feliz-people")
+            .filter(lbFunction)
+            .build()
+            .post()
+            .uri("/lorem/stgp")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(Mono.just(wmp), HrPersonDto.class)
+            .exchangeToMono(res->Mono.just(res.statusCode()));
+    }
+	
+	
+	@GetMapping("/stg")
+	@ResponseStatus(HttpStatus.OK)
+	public Mono<String> stg() {
+        return Mono.just("this is string");
+    }
+	
+	
+	@PostMapping(path="/stgp",consumes = { MediaType.APPLICATION_JSON_VALUE})
+	@ResponseStatus(HttpStatus.CREATED)
+	public void stg(@RequestBody Mono<HrPersonDto> stg) {
+        stg.subscribe(x->System.out.println("EEEEEEEEE"+x.getAddress()));
+    }
+		
 }
