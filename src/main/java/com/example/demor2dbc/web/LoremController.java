@@ -332,5 +332,13 @@ public class LoremController {
 	public void stg(@RequestBody Mono<HrPersonDto> stg) {
         stg.subscribe(x->System.out.println("EEEEEEEEE"+x.getAddress()));
     }
+	
+	
+	
+	@GetMapping("/xsdz")
+	@ResponseStatus(HttpStatus.OK)
+	public void wsdz() {
+         Mono.empty().switchIfEmpty(Mono.just("xxxx")).map(e->1).subscribe(x->System.out.println("#############"+x));
+    }
 		
 }

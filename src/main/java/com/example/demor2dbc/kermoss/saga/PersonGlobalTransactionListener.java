@@ -17,7 +17,7 @@ public class PersonGlobalTransactionListener {
 	public GlobalTransactionStepDefinition<BaseGlobalTransactionEvent> handlePersonCreatedEvent(PersonGlobalTransactionEvent event) {
 		return GlobalTransactionStepDefinition.builder().
 		in(event).
-		blow(Stream.of(new PersonCommitGlobalTransactionEvent(event.getPerson()))).
+		blow(Stream.of(new PersonLocalTransactionEvent(event.getPerson()))).
 		meta(new WorkerMeta("PersonGlobalTransactionService")).build();
 	}
 	
