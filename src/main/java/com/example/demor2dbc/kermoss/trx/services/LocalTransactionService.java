@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.ReactiveTransactionManager;
 import org.springframework.transaction.reactive.TransactionalOperator;
 
+import com.example.demor2dbc.kermoss.bfm.BaseTransactionCommand;
 import com.example.demor2dbc.kermoss.bfm.LocalTransactionStepDefinition;
 import com.example.demor2dbc.kermoss.bfm.WorkerMeta;
 import com.example.demor2dbc.kermoss.cache.BubbleCache;
@@ -133,8 +134,17 @@ public class LocalTransactionService {
 	}
 
 	Mono<Void> innerPipeToMono(WmLocalTransaction wml, LocalTransactionStepDefinition pipeline) {
-		Mono<Void> mono = Mono.just(pipeline.getIn()).then();
-
+		Mono<Void> mono = Mono.empty();
+		// add Transaction context in buubleMessage
+		Mono<BubbleMessage> bubbleMessage = BuildBubbleMessage(wml);
+		Stream<BaseTransactionCommand> send = pipeline.getSend();
+		if (send != null) {
+			Mono<Void> sendFlux = Flux.fromStream(send).concatMap(
+					c -> bubbleCache.getOrAddBubble(c.getId(), bubbleMessage).
+					then(businessFlow.recieveOutBoundCommand(c)))
+					.then();
+			mono = mono.then(sendFlux);
+		}
 		return mono;
 	}
 
@@ -143,7 +153,7 @@ public class LocalTransactionService {
 	// si une erreur survient il se peut que vous insérez le meme evenement lié au
 	// meme gtx
 	Mono<Void> outerPipeToMono(WmLocalTransaction wml, LocalTransactionStepDefinition pipeline) {
-		Mono<Void> mono = Mono.just(pipeline.getIn()).then();
+		Mono<Void> mono = Mono.empty();
 		// add Transaction context in buubleMessage
 		Mono<BubbleMessage> bubbleMessage = BuildBubbleMessage(wml);
 		Stream<BaseTransactionEvent> blow = pipeline.getBlow();

@@ -33,7 +33,6 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import com.example.demor2dbc.security.JwtGrantedAuthorityConverter;
 import com.example.demor2dbc.security.SecurityUtils;
 
-import reactor.blockhound.BlockHound;
 import reactor.core.publisher.Mono;
 
 @SpringBootApplication
@@ -47,9 +46,9 @@ public class DemoR2dbcApplication {
 	
 	public static void main(String[] args) {
 		
-		BlockHound
+		//BlockHound
 //		//.builder().allowBlockingCallsInside("io.netty.resolver.HostsFileParser", "parse")
-		.install();
+		//.install();
 		SpringApplication.run(DemoR2dbcApplication.class, args);
 	}
 	
@@ -79,6 +78,7 @@ public class DemoR2dbcApplication {
 	          .pathMatchers(HttpMethod.OPTIONS).permitAll()
 	          .pathMatchers("/actuator/**").permitAll()
 	          .pathMatchers("/lorem/**").permitAll()
+	          .pathMatchers("/command-executor/**").permitAll()
 	         // .pathMatchers("/people/**").hasAuthority("ROLE_USER")
 	           .pathMatchers("/people/**").hasAuthority("ROLE_USER")
 	          //.pathMatchers("/admin").hasAuthority("ADMIN")

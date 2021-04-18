@@ -1,6 +1,8 @@
 package com.example.demor2dbc.web;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -8,6 +10,10 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactorLoadBalancerExchangeFilterFunction;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.query.Query;
+import org.springframework.data.relational.core.query.Update;
+import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -30,6 +36,8 @@ import com.example.demor2dbc.kermoss.cache.BubbleMessage;
 import com.example.demor2dbc.kermoss.entities.GlobalTransactionStatus;
 import com.example.demor2dbc.kermoss.entities.WmEvent;
 import com.example.demor2dbc.kermoss.entities.WmGlobalTransaction;
+import com.example.demor2dbc.kermoss.entities.WmOutboundCommand;
+import com.example.demor2dbc.kermoss.infra.TransporterCommand;
 import com.example.demor2dbc.repositories.PersonReactRepo;
 import com.example.demor2dbc.security.SecurityUtils;
 import com.example.demor2dbc.security.UserDto;
@@ -337,8 +345,14 @@ public class LoremController {
 	
 	@GetMapping("/xsdz")
 	@ResponseStatus(HttpStatus.OK)
-	public void wsdz() {
-         Mono.empty().switchIfEmpty(Mono.just("xxxx")).map(e->1).subscribe(x->System.out.println("#############"+x));
-    }
+	public void wsdz() {                                             
+             
+	          Mono.just(5).filter(x-> x>5).switchIfEmpty(Mono.just(4).doOnNext(x->{
+	        	  System.out.println("KKKKKKKKKKKKKKKKKKKK");
+	        	  }))
+	          .subscribe(x -> System.out.println("JJJJJJJJJJJJJJ "),
+	      			error -> System.err.println("Error " + error), () -> System.out.println("JJJJJJJJJJJJJJ+Done"))
+	          ;
+	}
 		
 }

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.example.demor2dbc.kermoss.bfm.GlobalTransactionStepDefinition;
 import com.example.demor2dbc.kermoss.trx.message.CommitGtx;
+import com.example.demor2dbc.kermoss.trx.message.RollBackGtx;
 import com.example.demor2dbc.kermoss.trx.message.StartGtx;
 
 
@@ -29,18 +30,27 @@ public class BusinessGlobalTransactionAspect {
     @Pointcut("@annotation(com.example.demor2dbc.kermoss.trx.annotation.CommitBusinessGlobalTransactional)")
     public void commitGlobalTransactionPointcut(){
     }
+    @Pointcut("@annotation(com.example.demor2dbc.kermoss.trx.annotation.RollbackBusinessGlobalTransactional)")
+    public void rollBackGlobalTransactionPointcut(){
+    }
 
 
     @Around("globalTransactionPointcut()")
-    public void beginLocalTransaction(ProceedingJoinPoint pjp) throws Throwable {
+    public void beginGlobalTransaction(ProceedingJoinPoint pjp) throws Throwable {
         GlobalTransactionStepDefinition pipeline = (GlobalTransactionStepDefinition) pjp.proceed();
         publisher.publishEvent(new StartGtx(pipeline)); 
     }
 
     @Around("commitGlobalTransactionPointcut()")
-    public void moveLocalTransaction(ProceedingJoinPoint pjp) throws Throwable {
+    public void commitGlobalTransaction(ProceedingJoinPoint pjp) throws Throwable {
         GlobalTransactionStepDefinition pipeline = (GlobalTransactionStepDefinition) pjp.proceed();
         publisher.publishEvent(new CommitGtx(pipeline)); 
      
+    }
+    
+    @Around("rollBackGlobalTransactionPointcut()")
+    public void rollBackGlobalTransaction(ProceedingJoinPoint pjp) throws Throwable {
+        GlobalTransactionStepDefinition pipeline = (GlobalTransactionStepDefinition) pjp.proceed();
+        publisher.publishEvent(new RollBackGtx(pipeline));  
     }
 }
