@@ -5,7 +5,7 @@ import java.util.Date;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
-@Table("KERMOSS_EVENT")
+@Table("kermoss_event")
 public class WmEvent {
     
 	@Id

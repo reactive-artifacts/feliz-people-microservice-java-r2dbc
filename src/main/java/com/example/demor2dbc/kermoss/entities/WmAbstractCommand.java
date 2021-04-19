@@ -7,7 +7,7 @@ import org.springframework.data.relational.core.mapping.Table;
 import com.example.demor2dbc.kermoss.domain.Message;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-@Table("KERMOSS_CMD")
+@Table("kermoss_cmd")
 public abstract class WmAbstractCommand extends Message {
 	protected String pool;
 	private String subject;

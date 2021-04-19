@@ -7,7 +7,7 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.relational.core.mapping.Table;
 
 
-@Table("KERMOSS_GTX")
+@Table("kermoss_gtx")
 public class WmGlobalTransaction {
 	@Id
 	private String id;
