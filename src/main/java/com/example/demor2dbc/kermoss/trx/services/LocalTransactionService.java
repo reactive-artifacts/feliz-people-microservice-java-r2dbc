@@ -1,5 +1,6 @@
 package com.example.demor2dbc.kermoss.trx.services;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -14,9 +15,11 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 
 import com.example.demor2dbc.kermoss.bfm.BaseTransactionCommand;
 import com.example.demor2dbc.kermoss.bfm.LocalTransactionStepDefinition;
+import com.example.demor2dbc.kermoss.bfm.TransactionsDAG;
 import com.example.demor2dbc.kermoss.bfm.WorkerMeta;
 import com.example.demor2dbc.kermoss.cache.BubbleCache;
 import com.example.demor2dbc.kermoss.cache.BubbleMessage;
+import com.example.demor2dbc.kermoss.entities.GlobalTransactionStatus;
 import com.example.demor2dbc.kermoss.entities.LocalTransactionStatus;
 import com.example.demor2dbc.kermoss.entities.WmGlobalTransaction;
 import com.example.demor2dbc.kermoss.entities.WmLocalTransaction;
@@ -42,6 +45,9 @@ public class LocalTransactionService {
 	@Autowired
 	private ReactiveTransactionManager tm;
 
+	@Autowired
+	private TransactionsDAG dag;
+
 	@EventListener
 	public Mono<Void> begin(StartLtx event) {
 		TransactionalOperator rxtx = TransactionalOperator.create(tm);
@@ -51,8 +57,8 @@ public class LocalTransactionService {
 		Mono<BubbleMessage> bubbleMessage = bubbleCache.getBubble(pipeline.getIn().getId()).switchIfEmpty(
 				Mono.error(() -> new RuntimeException("this event is not linked to any transaction context")));
 
-		return bubbleMessage
-				.flatMap(bm -> findGtx(bm).flatMap(wgtx -> findLtxByNameAndGtxId(transactionName, wgtx.getId())
+		return bubbleMessage.flatMap(
+				bm -> findGtx(bm, transactionName).flatMap(wgtx -> findLtxByNameAndGtxId(transactionName, wgtx.getId())
 						.switchIfEmpty(newLocalTransaction(bm, pipeline.getMeta()))))
 				.flatMap(wml -> {
 					Mono<Void> mono = outerPipeToMono(wml, pipeline);
@@ -88,18 +94,16 @@ public class LocalTransactionService {
 				Mono.error(() -> new RuntimeException("this event is not linked to any transaction context")));
 
 		return bubbleMessage
-				.flatMap(bm -> findGtx(bm)
+				.flatMap(bm -> findGtx(bm, transactionName)
 						.flatMap(wgtx -> findLtxByNameAndGtxId(transactionName, wgtx.getId()).switchIfEmpty(Mono.error(
-								new RuntimeException("no local transaction found with name " + transactionName)))))
+								new RuntimeException("no local transaction started with name " + transactionName)))))
 				.flatMap(wml -> {
 					Mono<Void> mono = outerPipeToMono(wml, pipeline);
 					if (wml.getState().equals(LocalTransactionStatus.STARTED)) {
 						wml.setState(LocalTransactionStatus.COMITTED);
 						Mono<Void> updateLtx = template.update(wml).then(innerPipeToMono(wml, pipeline)).then(mono);
-						return findNestedLtx(wml).
-								all(el -> el.getState().equals(LocalTransactionStatus.COMITTED)).
-								defaultIfEmpty(true)
-								.flatMap(res -> {
+						return findNestedLtx(wml).all(el -> el.getState().equals(LocalTransactionStatus.COMITTED))
+								.defaultIfEmpty(true).flatMap(res -> {
 									if (res.equals(true)) {
 										return updateLtx;
 									} else {
@@ -113,14 +117,56 @@ public class LocalTransactionService {
 					}
 				}).as(rxtx::transactional);
 
-
 	}
 
-	// TODO: tobe refactored
+	// TODOx: tobe refactored
 
-	public Mono<WmGlobalTransaction> findGtx(BubbleMessage bm) {
-		return template.select(WmGlobalTransaction.class).matching(Query.query(Criteria.where("id").is(bm.getGLTX())))
-				.one().switchIfEmpty(Mono.error(() -> new RuntimeException("Cannot find GTX")));
+	public Mono<WmGlobalTransaction> findGtx(BubbleMessage bm, String transactionName) {
+		List<String> predecessors = dag.predecessors(transactionName);
+
+		String globalTransactionName = predecessors.remove(predecessors.size() - 1);
+		// remove the current transactionName
+		predecessors.remove(0);
+
+		Mono<WmGlobalTransaction> globalTransaction = Mono.empty();
+
+		String GTX = bm.getGLTX();
+		String PGTX = bm.getPGTX();
+		if (GTX == null && PGTX != null) {
+			globalTransaction = template.select(WmGlobalTransaction.class)
+					.matching(Query.query(Criteria.where("parent").is(bm.getPGTX()).and("name")
+							.is(globalTransactionName).and("status").is(GlobalTransactionStatus.STARTED)))
+					.one().switchIfEmpty(Mono.error(() -> new RuntimeException("Cannot find a started GTX")));
+		} else {
+			globalTransaction = template.select(WmGlobalTransaction.class)
+					.matching(Query.query(
+							Criteria.where("id").is(bm.getGLTX()).and("status").is(GlobalTransactionStatus.STARTED)))
+					.one().switchIfEmpty(Mono.error(() -> new RuntimeException("Cannot find a stared GTX")));
+		}
+
+		if (predecessors.size() >= 1) {
+			globalTransaction =globalTransaction.flatMap(gt->checkAllLtxParentsStarted(gt.getId(),predecessors).flatMap(b->{
+				if(b.equals(true)) {
+					return Mono.just(gt);
+				}else {
+					return Mono.error(new RuntimeException("Not all parents for the Local Transaction "+transactionName+" are started"));
+				}
+			}));
+		}
+		return globalTransaction;
+	}
+
+	Mono<Boolean> checkAllLtxParentsStarted(String gtx_id, List<String> predecessors) {
+		return template.select(WmLocalTransaction.class).
+		 matching(Query.query(Criteria.where("gtx_id").
+				 is(gtx_id).and("state")
+				.is(LocalTransactionStatus.STARTED).and("name").in(predecessors))).count().map(count -> {
+					if (predecessors.size() == count) {
+						return true;
+					} else {
+					   return false;
+					}
+				});
 	}
 
 	public Mono<WmLocalTransaction> findLtxByNameAndGtxId(String name, String gtxId) {
@@ -139,10 +185,8 @@ public class LocalTransactionService {
 		Mono<BubbleMessage> bubbleMessage = BuildBubbleMessage(wml);
 		Stream<BaseTransactionCommand> send = pipeline.getSend();
 		if (send != null) {
-			Mono<Void> sendFlux = Flux.fromStream(send).concatMap(
-					c -> bubbleCache.getOrAddBubble(c.getId(), bubbleMessage).
-					then(businessFlow.recieveOutBoundCommand(c)))
-					.then();
+			Mono<Void> sendFlux = Flux.fromStream(send).concatMap(c -> bubbleCache
+					.getOrAddBubble(c.getId(), bubbleMessage).then(businessFlow.recieveOutBoundCommand(c))).then();
 			mono = mono.then(sendFlux);
 		}
 		return mono;

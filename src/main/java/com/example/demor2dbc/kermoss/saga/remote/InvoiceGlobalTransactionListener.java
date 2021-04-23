@@ -5,6 +5,7 @@ import java.util.stream.Stream;
 import org.springframework.stereotype.Component;
 
 import com.example.demor2dbc.kermoss.bfm.GlobalTransactionStepDefinition;
+import com.example.demor2dbc.kermoss.bfm.GlobalTransactionWorker;
 import com.example.demor2dbc.kermoss.bfm.WorkerMeta;
 import com.example.demor2dbc.kermoss.events.BaseGlobalTransactionEvent;
 import com.example.demor2dbc.kermoss.saga.domain.Invoice;
@@ -16,8 +17,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Component
-public class InvoiceGlobalTransactionListener {
+public class InvoiceGlobalTransactionListener extends GlobalTransactionWorker{
 	
+	public InvoiceGlobalTransactionListener() {
+		super(new WorkerMeta("InvoiceGlobalTransactionService"));
+	}
+
 	@BusinessGlobalTransactional
 	public GlobalTransactionStepDefinition<BaseGlobalTransactionEvent> handle(InvoiceGlobalTransactionEvent event) {
 		return GlobalTransactionStepDefinition.builder().
@@ -28,14 +33,14 @@ public class InvoiceGlobalTransactionListener {
 			return Mono.just(x).flatMap(e->Mono.error(new RemoteException())).then();
 			}).
 		compensateWhen(Flux.just(new InvoiceRollbackGlobalTransactionEvent()),RemoteException.class)
-		.meta(new WorkerMeta("InvoiceGlobalTransactionService")).build();
+		.meta(this.meta).build();
 	}
 		
 	@CommitBusinessGlobalTransactional
 	public GlobalTransactionStepDefinition<BaseGlobalTransactionEvent> handleCommit(InvoiceCommitGlobalTransactionEvent event) {
 		return GlobalTransactionStepDefinition.builder().
 		in(event).
-		meta(new WorkerMeta("InvoiceGlobalTransactionService")).build();
+		meta(this.meta).build();
 	}
 	
 	
@@ -43,6 +48,6 @@ public class InvoiceGlobalTransactionListener {
 	public GlobalTransactionStepDefinition<BaseGlobalTransactionEvent> handleRollBack(InvoiceRollbackGlobalTransactionEvent event) {
 		return GlobalTransactionStepDefinition.builder().
 		in(event).
-		meta(new WorkerMeta("InvoiceGlobalTransactionService")).build();
+		meta(this.meta).build();
 	}
 }
