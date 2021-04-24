@@ -18,8 +18,8 @@ import reactor.util.Logger;
 import reactor.util.Loggers;
 
 @Component
-public class OutBoundCommandHttpFlux {
-	public static final Logger LOG = Loggers.getLogger(OutBoundCommandHttpFlux.class);
+public class OutBoundCommandFlux {
+	public static final Logger LOG = Loggers.getLogger(OutBoundCommandFlux.class);
 	
 	
 	private Flux<TransporterCommand> flux;
@@ -28,11 +28,11 @@ public class OutBoundCommandHttpFlux {
 
 	@PostConstruct
 	public void init() {
-		Flux<TransporterCommand> outBoundCmdHttpFlux = Flux.create(sink -> {
+		Flux<TransporterCommand> outBoundCmdFlux = Flux.create(sink -> {
 			bridge = (TransporterCommand event) -> sink.next(event);
 		},OverflowStrategy.IGNORE);
 		
-		flux = outBoundCmdHttpFlux.
+		flux = outBoundCmdFlux.
 				onErrorContinue((ex,object)->{
 		    		LOG.error("connot process event: "+object.toString(),ex);
 		    	}).replay(1).autoConnect();

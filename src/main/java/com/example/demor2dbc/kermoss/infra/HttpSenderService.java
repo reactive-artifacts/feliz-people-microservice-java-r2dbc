@@ -34,7 +34,7 @@ public class HttpSenderService {
 	private ReactiveTransactionManager tm;
 
 	@Autowired
-	private OutBoundCommandHttpFlux outboundCommandHttpFlux;
+	private OutBoundCommandFlux outboundCommandFlux;
 
 	@Autowired
 	private R2dbcEntityTemplate template;
@@ -42,9 +42,10 @@ public class HttpSenderService {
 	@PostConstruct
 	public void init() {
 		TransactionalOperator rxtx = TransactionalOperator.create(tm);   
-
-		outboundCommandHttpFlux.flux().
-		onBackpressureBuffer(255*3, x->{
+        
+		outboundCommandFlux.flux().
+		filter(p->false)
+		.onBackpressureBuffer(255*3, x->{
 			//making some side effect here 
 			LOG.warn("Overflow: discarding element from queue="+x);
 			}, 
@@ -77,6 +78,8 @@ public class HttpSenderService {
 				.exchangeToMono(res -> Mono.just(res.statusCode()));
 	}
 
+	
+	//TODOx tobe refactored exist also in kafkaSender
 	public Update toPq(WmOutboundCommand wmo) {
 		Map<SqlIdentifier, Object> columnsToUpdate = new LinkedHashMap<SqlIdentifier, Object>();
 		columnsToUpdate.put(SqlIdentifier.unquoted("status"), wmo.getStatus());

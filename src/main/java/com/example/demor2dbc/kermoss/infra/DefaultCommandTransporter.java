@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono;
 @Component
 public class DefaultCommandTransporter {
 	@Autowired
-	OutBoundCommandHttpFlux boundCommandHttpFlux;
+	OutBoundCommandFlux boundCommandFlux;
 	
 	@Autowired
 	private R2dbcEntityTemplate template;
@@ -26,7 +26,7 @@ public class DefaultCommandTransporter {
 	        return template.selectOne(Query.query(Criteria.where("id").is(event.getMeta().getCommandId())), 
 	        		 WmOutboundCommand.class).doOnNext(wmc->{
 	        			 TransporterCommand c = transform(wmc);
-	        			 boundCommandHttpFlux.bridge().accept(c);
+	        			 boundCommandFlux.bridge().accept(c);
 	        		 }).then();
 		
 	}

@@ -21,8 +21,8 @@ import reactor.util.Logger;
 import reactor.util.Loggers;
 
 @Component
-public class KafkaSenderService {
-	public static final Logger LOG = Loggers.getLogger(KafkaSenderService.class);
+public class PersonKafkaSenderService {
+	public static final Logger LOG = Loggers.getLogger(PersonKafkaSenderService.class);
 	
     private  KafkaSender<String, DomainEvent> sender;
 	

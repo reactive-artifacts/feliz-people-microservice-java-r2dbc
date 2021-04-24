@@ -28,6 +28,7 @@ public class CommandController {
     }
     
     
+    //TODOx to be refactored see KafkaReceiver 
     public WmInboundCommand transform(TransporterCommand outcmd) {
 
 		return WmInboundCommand.builder().source(outcmd.getSource()).subject(outcmd.getSubject())

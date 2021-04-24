@@ -18,7 +18,7 @@ import reactor.util.Loggers;
 
 @Component
 public class PersonEventFluxBridge {
-	public static final Logger LOG = Loggers.getLogger(KafkaSenderService.class);
+	public static final Logger LOG = Loggers.getLogger(PersonKafkaSenderService.class);
 	
 	@Autowired
 	PersonService personService;
