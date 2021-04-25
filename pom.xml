@@ -21,6 +21,11 @@
 	</properties>
 	<dependencies>
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-configuration-processor</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
 			<groupId>org.jgrapht</groupId>
 			<artifactId>jgrapht-core</artifactId>
 			<version>1.0.1</version>
@@ -152,6 +157,11 @@
 							<artifactId>mapstruct-processor</artifactId>
 							<version>${org.mapstruct.version}</version>
 						</path>
+						<path>
+                           <groupId>org.springframework.boot</groupId>
+                           <artifactId>spring-boot-configuration-processor</artifactId>
+                           <version>2.4.4</version>
+                       </path>
 					</annotationProcessorPaths>
 				</configuration>
 			</plugin>

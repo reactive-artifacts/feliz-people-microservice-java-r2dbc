@@ -19,6 +19,8 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.example.demor2dbc.kermoss.entities.WmOutboundCommand;
+import com.example.demor2dbc.kermoss.props.KermossProperties;
+import com.example.demor2dbc.kermoss.props.Layer;
 
 import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Mono;
@@ -39,12 +41,15 @@ public class HttpSenderService {
 	@Autowired
 	private R2dbcEntityTemplate template;
 	
+	@Autowired
+	private KermossProperties kermossProperties;
+	
 	@PostConstruct
 	public void init() {
 		TransactionalOperator rxtx = TransactionalOperator.create(tm);   
         
 		outboundCommandFlux.flux().
-		filter(p->false)
+		filter(tc->Layer.HTTP.equals(getTransportLayer(tc)))
 		.onBackpressureBuffer(255*3, x->{
 			//making some side effect here 
 			LOG.warn("Overflow: discarding element from queue="+x);
@@ -73,7 +78,7 @@ public class HttpSenderService {
 	}
 
 	private Mono<HttpStatus> send(TransporterCommand tc) {
-		return WebClient.builder().baseUrl("http://localhost:8080/command-executor").build().post().uri("/commands")
+		return WebClient.builder().baseUrl(getAddress(tc)+"/command-executor").build().post().uri("/commands")
 				.contentType(MediaType.APPLICATION_JSON).body(Mono.just(tc), TransporterCommand.class)
 				.exchangeToMono(res -> Mono.just(res.statusCode()));
 	}
@@ -91,6 +96,29 @@ public class HttpSenderService {
 		}
 		return Update.from(columnsToUpdate);
 
+	}
+	//TODOx tobe refactored exist also in kafkaSender
+	Layer getTransportLayer(TransporterCommand tc){
+		Layer layer= kermossProperties.getSources().get(tc.getDestination()).getTransport();
+		if(layer==null) {
+			layer=kermossProperties.getTransport().getDefaultLayer();
+		}
+		return layer;
+	}
+	
+	//TODOx tobe refactored exist also in kafkaSender
+	String getAddress(TransporterCommand tc) {
+		String address = null;
+		Layer layer = getTransportLayer(tc);
+		switch (layer) {
+		case HTTP:
+			address = kermossProperties.getHttpDestination(tc.getDestination());
+			break;
+		case KAFKA:
+			address = kermossProperties.getKafkaDestination(tc.getDestination());
+			break;
+		}
+		return address;
 	}
 
 }
