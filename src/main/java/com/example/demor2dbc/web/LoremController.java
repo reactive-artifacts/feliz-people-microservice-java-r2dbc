@@ -1,19 +1,20 @@
 package com.example.demor2dbc.web;
 
 import java.time.Duration;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.PreDestroy;
+
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactorLoadBalancerExchangeFilterFunction;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
-import org.springframework.data.relational.core.query.Criteria;
-import org.springframework.data.relational.core.query.Query;
-import org.springframework.data.relational.core.query.Update;
-import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -30,13 +31,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.example.demor2dbc.entities.read.Person;
-import com.example.demor2dbc.entities.write.WmPerson;
+import com.example.demor2dbc.infra.kafka.JsonSerializer;
 import com.example.demor2dbc.kermoss.cache.BubbleCache;
 import com.example.demor2dbc.kermoss.cache.BubbleMessage;
 import com.example.demor2dbc.kermoss.entities.GlobalTransactionStatus;
 import com.example.demor2dbc.kermoss.entities.WmEvent;
 import com.example.demor2dbc.kermoss.entities.WmGlobalTransaction;
-import com.example.demor2dbc.kermoss.entities.WmOutboundCommand;
 import com.example.demor2dbc.kermoss.infra.TransporterCommand;
 import com.example.demor2dbc.repositories.PersonReactRepo;
 import com.example.demor2dbc.security.SecurityUtils;
@@ -50,6 +50,9 @@ import reactor.core.publisher.FluxSink.OverflowStrategy;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
+import reactor.kafka.sender.KafkaSender;
+import reactor.kafka.sender.SenderOptions;
+import reactor.kafka.sender.SenderRecord;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
@@ -346,13 +349,17 @@ public class LoremController {
 	@GetMapping("/xsdz")
 	@ResponseStatus(HttpStatus.OK)
 	public void wsdz() {                                             
-             
-	          Mono.just(5).filter(x-> x>5).switchIfEmpty(Mono.just(4).doOnNext(x->{
-	        	  System.out.println("KKKKKKKKKKKKKKKKKKKK");
-	        	  }))
-	          .subscribe(x -> System.out.println("JJJJJJJJJJJJJJ "),
-	      			error -> System.err.println("Error " + error), () -> System.out.println("JJJJJJJJJJJJJJ+Done"))
-	          ;
+	    Flux.just(2,5).doOnNext(x->{System.out.println(x);}).concatMap(x->{
+	    	if(x==5) {
+	    		return Mono.error(new RuntimeException("xxxx"+x));
+	    	}else {
+	    		return Mono.just(x);
+	    	}
+	    }).retry(3).subscribe(x -> System.out.println("JJJJJJJJJJJJJJ " + x),
+				error -> System.err.println("Error " + error), () -> System.out.println("JJJJJJJJJJJJJJ+Done"));
 	}
+	
+	
+	
 		
 }

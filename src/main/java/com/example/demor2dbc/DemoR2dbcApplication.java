@@ -33,7 +33,6 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import com.example.demor2dbc.security.JwtGrantedAuthorityConverter;
 import com.example.demor2dbc.security.SecurityUtils;
 
-import reactor.blockhound.BlockHound;
 import reactor.core.publisher.Mono;
 
 @SpringBootApplication
@@ -47,9 +46,9 @@ public class DemoR2dbcApplication {
 	
 	public static void main(String[] args) {
 		
-		BlockHound
+//		BlockHound
 //		//.builder().allowBlockingCallsInside("io.netty.resolver.HostsFileParser", "parse")
-		.install();
+//		.install();
 		SpringApplication.run(DemoR2dbcApplication.class, args);
 	}
 	
