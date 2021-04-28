@@ -26,6 +26,7 @@ import com.example.demor2dbc.kermoss.entities.WmOutboundCommand;
 import com.example.demor2dbc.kermoss.props.KermossProperties;
 import com.example.demor2dbc.kermoss.props.Layer;
 
+import reactor.core.Disposable;
 import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.kafka.sender.KafkaSender;
@@ -51,6 +52,8 @@ public class KafkaSenderService {
 	private KermossProperties kermossProperties;
 
 	private KafkaSender<String, TransporterCommand> sender;
+	
+	private Disposable subscribe;
 
 	// TODOx pass to config class
 	public SenderOptions<String, TransporterCommand> senderOptions() {
@@ -69,7 +72,7 @@ public class KafkaSenderService {
 	public void init() {
 		TransactionalOperator rxtx = TransactionalOperator.create(tm);
 		sender = KafkaSender.create(senderOptions());
-		sender.send(events()).flatMap(rs -> {
+		subscribe=sender.send(events()).flatMap(rs -> {
 			WmOutboundCommand wmOutboundCommand = new WmOutboundCommand();
 			if (rs.exception() == null) {
 				wmOutboundCommand.changeStatusToDelivered();
@@ -83,6 +86,8 @@ public class KafkaSenderService {
 		}).subscribe();
 
 	}
+	
+	
 
 	private Flux<SenderRecord<String, TransporterCommand, String>> events() {
 		return Flux.merge(List.of(outboundCommandFlux.flux().filter(tc -> Layer.KAFKA.equals(getTransportLayer(tc)))))
@@ -102,6 +107,7 @@ public class KafkaSenderService {
 	@PreDestroy
 	public void destroy() {
 		sender.close();
+		subscribe.dispose();
 	}
 
 	public Update toPq(WmOutboundCommand wmo) {

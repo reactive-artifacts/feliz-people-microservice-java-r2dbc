@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
 import reactor.kafka.receiver.ReceiverRecord;
@@ -41,6 +42,8 @@ public class KafkaReceiverService {
 	@Autowired
 	private ObjectMapper objectMapper;
 
+	private Disposable subscribe;
+	
 	public ReceiverOptions<String, String> receiverOptions() {
 		Map<String, Object> props = new HashMap<>();
 		props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
@@ -52,8 +55,6 @@ public class KafkaReceiverService {
 	}
 
 	
-	
-	private Disposable subscribe;
 	@PostConstruct
 	public void init() {
 
