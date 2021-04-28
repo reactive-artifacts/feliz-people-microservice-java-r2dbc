@@ -17,8 +17,8 @@ import com.example.demor2dbc.kermoss.bfm.BaseTransactionCommand;
 import com.example.demor2dbc.kermoss.cache.BubbleCache;
 import com.example.demor2dbc.kermoss.cache.BubbleMessage;
 import com.example.demor2dbc.kermoss.entities.WmEvent;
-import com.example.demor2dbc.kermoss.entities.WmGlobalTransaction;
 import com.example.demor2dbc.kermoss.entities.WmInboundCommand;
+import com.example.demor2dbc.kermoss.entities.WmInboundCommand.Status;
 import com.example.demor2dbc.kermoss.entities.WmOutboundCommand;
 import com.example.demor2dbc.kermoss.entities.WmOutboundCommand.WmOutboundCommandBuilder;
 import com.example.demor2dbc.kermoss.events.BaseGlobalTransactionEvent;
@@ -120,10 +120,14 @@ public class BusinessFlow {
 					tm.registerSynchronization(new TransactionSynchronization() {
 						@Override
 						public Mono<Void> afterCompletion(int status) {
-                            
-							return Mono.just(new InboundCommandStarted(command.buildMeta())).publishOn(Schedulers.boundedElastic()).doOnNext(evt -> {
+                            if(!Status.COMPLETED.equals(wmc.getStatus())) {
+							return Mono.just(new InboundCommandStarted(command.buildMeta())).
+									publishOn(Schedulers.boundedElastic()).doOnNext(evt -> {
 								publisher.publishEvent(evt);
 							}).then();
+                            }else {
+                            	return Mono.empty();
+                            }
 						}
 
 					});
