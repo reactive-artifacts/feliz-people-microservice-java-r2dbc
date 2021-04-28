@@ -144,7 +144,7 @@ public class LocalTransactionService {
 					.one().switchIfEmpty(Mono.error(() -> new RuntimeException("Cannot find a stared GTX")));
 		}
 
-		if (predecessors.size() >= 1) {
+		if (!predecessors.isEmpty()) {
 			globalTransaction =globalTransaction.flatMap(gt->checkAllLtxParentsStarted(gt.getId(),predecessors).flatMap(b->{
 				if(b.equals(true)) {
 					return Mono.just(gt);

@@ -3,16 +3,21 @@ package com.example.demor2dbc.kermoss.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.relational.core.query.Criteria;
+import org.springframework.data.relational.core.query.Query;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.ReactiveTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.reactive.TransactionSynchronization;
 import org.springframework.transaction.reactive.TransactionSynchronizationManager;
+import org.springframework.transaction.reactive.TransactionalOperator;
 
 import com.example.demor2dbc.kermoss.bfm.BaseTransactionCommand;
 import com.example.demor2dbc.kermoss.cache.BubbleCache;
 import com.example.demor2dbc.kermoss.cache.BubbleMessage;
 import com.example.demor2dbc.kermoss.entities.WmEvent;
+import com.example.demor2dbc.kermoss.entities.WmGlobalTransaction;
 import com.example.demor2dbc.kermoss.entities.WmInboundCommand;
 import com.example.demor2dbc.kermoss.entities.WmOutboundCommand;
 import com.example.demor2dbc.kermoss.entities.WmOutboundCommand.WmOutboundCommandBuilder;
@@ -28,6 +33,9 @@ import reactor.core.scheduler.Schedulers;
 
 @Service
 public class BusinessFlow {
+	@Autowired
+	private ReactiveTransactionManager tm;
+	
 	@Autowired
 	private R2dbcEntityTemplate template;
 	@Autowired
@@ -97,15 +105,17 @@ public class BusinessFlow {
 	}
 	
 	
-	
-   @Transactional
-   public Mono<Void> recieveInBoundCommand(WmInboundCommand command){       
-	   return saveInBoundCommand(command).then();
+   public Mono<Void> recieveInBoundCommand(WmInboundCommand command){  
+	   TransactionalOperator rxtx = TransactionalOperator.create(tm);
+	   return saveInBoundCommand(command).then().as(rxtx::transactional);
 	}
 	
 	private Mono<WmInboundCommand> saveInBoundCommand(WmInboundCommand command){
-		//TODOx check if exist before insert
-		return template.insert(command).flatMap(wmc -> TransactionSynchronizationManager.forCurrentTransaction()
+		
+		Mono<WmInboundCommand> mCommand=template.select(WmInboundCommand.class)
+		.matching(Query.query(Criteria.where("ref_id").is(command.getRefId()))).one().
+		switchIfEmpty(template.insert(command));
+		return mCommand.flatMap(wmc -> TransactionSynchronizationManager.forCurrentTransaction()
 				.map(tm -> {
 					tm.registerSynchronization(new TransactionSynchronization() {
 						@Override

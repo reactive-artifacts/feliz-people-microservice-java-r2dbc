@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -18,6 +19,7 @@ import com.example.demor2dbc.kermoss.service.BusinessFlow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
@@ -49,6 +51,9 @@ public class KafkaReceiverService {
 		return ReceiverOptions.<String, String>create(props);
 	}
 
+	
+	
+	private Disposable subscribe;
 	@PostConstruct
 	public void init() {
 
@@ -57,13 +62,14 @@ public class KafkaReceiverService {
 				commitBatchSize(0);
 		Flux<ReceiverRecord<String, String>> kafkaFlux = KafkaReceiver.create(options).receive();
 
-		kafkaFlux.concatMap(m -> {
+		subscribe = kafkaFlux.concatMap(m -> {
 			TransporterCommand tc = null;
 			try {
 				tc = objectMapper.readValue(m.value(), TransporterCommand.class);
 			} catch (JsonProcessingException e) {
 				LOG.error("Cannot deserialize the " + m.value() + " to TransporterCommand", e);
 			}
+			
 			if (tc != null) {
 				return businessFlow.recieveInBoundCommand(transform(tc)).thenEmpty(m.receiverOffset().commit());
 			} else {
@@ -75,6 +81,11 @@ public class KafkaReceiverService {
 		.subscribe();
 
 	}
+	
+	@PreDestroy
+	public void destroy() {
+		subscribe.dispose();
+	}
 
 	public WmInboundCommand transform(TransporterCommand outcmd) {
 
@@ -83,4 +94,5 @@ public class KafkaReceiverService {
 				.gTX(outcmd.getChildofGTX()).fLTX(outcmd.getFLTX()).additionalHeaders(outcmd.getAdditionalHeaders())
 				.refId(outcmd.getRefId()).trace(outcmd.getTraceId()).build();
 	}
+	
 }

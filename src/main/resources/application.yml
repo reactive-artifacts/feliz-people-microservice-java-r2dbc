@@ -63,6 +63,7 @@ kermoss:
           kafka: io.kermoss.topics.person
           http: http://localhost:8080
           transport: kafka
+          
        
   sinks:
      feliz-people:
