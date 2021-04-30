@@ -59,7 +59,9 @@ public class GlobalTransactionService {
 		return Mono.just(wmg).flatMap(e -> bubbleCache.getBubble(event.getPipeline().getIn().getId()).map(bm -> {
 			e.setParent(bm.getPGTX());
 			return e;
-		})).then(template.insert(wmg)).then(pipeToMono(wmg, event.getPipeline())).as(rxtx::transactional);
+		})).then(template.insert(wmg)).then(pipeToMono(wmg, event.getPipeline())).
+				thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
+				.as(rxtx::transactional);
 	}
 
 	Mono<Void> pipeToMono(WmGlobalTransaction wmg, GlobalTransactionStepDefinition pipeline) {
@@ -140,7 +142,9 @@ public class GlobalTransactionService {
 					}else {
 						return Mono.error(new RuntimeException("Cannot commit a rollbacked Transaction"));
 					}
-				}).as(rxtx::transactional);
+				})
+				.thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
+				.as(rxtx::transactional);
 	}
 	
 	
@@ -163,7 +167,9 @@ public class GlobalTransactionService {
 					}else {
 						return Mono.error(new RuntimeException("Cannot rollback a commited Transaction"));
 					}
-				}).as(rxtx::transactional);
+				})
+				.thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
+				.as(rxtx::transactional);
 	}
 
 }

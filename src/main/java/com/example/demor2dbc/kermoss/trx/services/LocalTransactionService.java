@@ -66,7 +66,7 @@ public class LocalTransactionService {
 						return template.insert(wml).then(innerPipeToMono(wml, pipeline)).then(mono);
 					}
 					return mono;
-				}).as(rxtx::transactional);
+				}).thenEmpty(businessFlow.consumeSafeEvent(pipeline.getIn()).then()).as(rxtx::transactional);
 
 	}
 
@@ -115,7 +115,7 @@ public class LocalTransactionService {
 					} else {
 						return Mono.empty();
 					}
-				}).as(rxtx::transactional);
+				}).thenEmpty(businessFlow.consumeSafeEvent(pipeline.getIn()).then()).as(rxtx::transactional);
 
 	}
 

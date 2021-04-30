@@ -7,6 +7,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.query.Update;
 import org.springframework.data.relational.core.sql.SqlIdentifier;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 public abstract class WmEntity {
 	@Id
 	private Long id;
@@ -26,8 +28,10 @@ public abstract class WmEntity {
 		return Update.from(columnsToUpdate);
 	}
 	
+	@JsonIgnore
 	abstract void setUq(Map<SqlIdentifier, Object> columnsToUpdate);
 
+	@JsonIgnore
 	abstract void setPq(Map<SqlIdentifier, Object> columnsToUpdate);
 
 	public WmEntity activate() {

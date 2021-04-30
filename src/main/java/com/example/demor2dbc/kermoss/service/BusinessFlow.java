@@ -1,10 +1,15 @@
 package com.example.demor2dbc.kermoss.service;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.relational.core.query.Criteria;
 import org.springframework.data.relational.core.query.Query;
+import org.springframework.data.relational.core.query.Update;
+import org.springframework.data.relational.core.sql.SqlIdentifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.ReactiveTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -52,16 +57,19 @@ public class BusinessFlow {
 	}
     
 	public Mono<BaseTransactionEvent> publishSafeEvent(BaseTransactionEvent event){
-		WmEvent wmEvent = new WmEvent();
-		wmEvent.setId(event.getId());
-		wmEvent.setName(event.getClass().getName());
-		try {
-			wmEvent.setPayload(objectMapper.writeValueAsString(event));
-		} catch (JsonProcessingException e) {
-			e.printStackTrace();
-		}
 		
-		return template.insert(wmEvent).flatMap(wme -> TransactionSynchronizationManager.forCurrentTransaction()
+		
+		Mono<WmEvent> mWmEvent=bubbleCache.getBubble(event.getId()).map(bm->{
+			WmEvent wmEvent = mapToWmEvent(event);
+			wmEvent.setCommandId(bm.getCommandId());
+			wmEvent.setGTX(bm.getGLTX());
+			wmEvent.setPGTX(bm.getPGTX());
+			wmEvent.setLTX(bm.getLTX());
+			wmEvent.setFLTX(bm.getFLTX());
+			return wmEvent;
+		}).defaultIfEmpty(mapToWmEvent(event));
+		
+		return mWmEvent.flatMap(wmEvent->template.insert(wmEvent)).flatMap(wme -> TransactionSynchronizationManager.forCurrentTransaction()
 				.map(tm -> {
 					tm.registerSynchronization(new TransactionSynchronization() {
 						@Override
@@ -75,6 +83,36 @@ public class BusinessFlow {
 					});
 					return event;
 				}));
+	}
+	// TODOx go to mapper ...
+	WmEvent mapToWmEvent(BaseTransactionEvent event){
+		WmEvent wmEvent = new WmEvent();
+		wmEvent.setId(event.getId());
+		wmEvent.setName(event.getClass().getName());
+		try {
+			wmEvent.setPayload(objectMapper.writeValueAsString(event));
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}
+		return wmEvent;
+	}
+	
+	public Mono<BaseTransactionEvent> consumeSafeEvent(BaseTransactionEvent event){
+		WmEvent wmEvent = new WmEvent();
+		wmEvent.setId(event.getId());
+		wmEvent.setStatus(WmEvent.Status.CONSUMED);
+	
+		return template.update(Query.query(Criteria.where("id").is(wmEvent.getId())), 
+				toPq(wmEvent),
+				WmEvent.class).map(wme->event);	
+			
+	}
+	
+	// TODOx tobe refactored put it in WmEvent like person entity
+	public Update toPq(WmEvent wme) {
+		Map<SqlIdentifier, Object> columnsToUpdate = new LinkedHashMap<SqlIdentifier, Object>();
+		columnsToUpdate.put(SqlIdentifier.unquoted("status"), wme.getStatus());
+		return Update.from(columnsToUpdate);
 	}
 	
 	
