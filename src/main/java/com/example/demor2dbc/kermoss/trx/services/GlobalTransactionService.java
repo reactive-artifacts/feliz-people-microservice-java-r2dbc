@@ -54,13 +54,15 @@ public class GlobalTransactionService {
 		wmg.setStatus(GlobalTransactionStatus.STARTED);
 		wmg.setName(event.getPipeline().getMeta().getTransactionName());
 		wmg.setId(UUID.randomUUID().toString());
-//TODO vérifier que l'idemptence si l'event se produit plusieur fois par le scheduler par parent gtx
-		// TODO séparer pipeToMONO (inner/outer)
+//TODOx (je pense pas que l'idempotence est necessaire , voir une autre fois) vérifier que l'idemptence si l'event se produit plusieur fois par le scheduler par parent gtx
+		// TODOx séparer pipeToMONO (inner/outer)
 		return Mono.just(wmg).flatMap(e -> bubbleCache.getBubble(event.getPipeline().getIn().getId()).map(bm -> {
-			e.setParent(bm.getPGTX());
+			//TODOx Not yet tested case of global commit or rollback blow (event or compensate) attach gtx as parent for new global tx 
+			e.setParent((bm.getGLTX()!=null && bm.getPGTX()==null)?bm.getGLTX():bm.getPGTX());
 			return e;
-		})).then(template.insert(wmg)).then(pipeToMono(wmg, event.getPipeline())).
-				thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
+		})).then(template.insert(wmg)).then(pipeToMono(wmg, event.getPipeline()))
+				.thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
+				.onErrorResume(x->compensate(x, wmg, event.getPipeline()))
 				.as(rxtx::transactional);
 	}
 
@@ -97,21 +99,26 @@ public class GlobalTransactionService {
 					.then();
 			mono = mono.then(blowFlux);
 		}
-		// let Compensation at end of the end
+
+		return mono;
+	}
+   
+	// global propagation not yet treated
+	Mono<Void> compensate(Throwable x, WmGlobalTransaction wmg, GlobalTransactionStepDefinition pipeline) {
+		Mono<BubbleMessage> bubbleMessage = BuildBubbleMessage(wmg);
 		CompensateWhen compensateWhen = pipeline.getCompensateWhen();
 		if (compensateWhen != null) {
-			mono = mono.onErrorResume(x -> {
-				Stream<Class<Exception>> exs = Stream.of(compensateWhen.getExceptions());
-				if (exs.anyMatch(ex -> ex.isAssignableFrom(x.getClass()))) {
-					Flux<BaseTransactionEvent> cpWhenblow = (Flux<BaseTransactionEvent>) compensateWhen.getBlow();
-					return cpWhenblow.concatMap(evt -> bubbleCache.getOrAddBubble(evt.getId(), bubbleMessage)
-							.then(businessFlow.publishSafeEvent(evt))).then();
-				} else {
-					return Mono.error(x);
-				}
-			});
+			Stream<Class<Exception>> exs = Stream.of(compensateWhen.getExceptions());
+			if (exs.anyMatch(ex -> ex.isAssignableFrom(x.getClass()))) {
+				Flux<BaseTransactionEvent> cpWhenblow = (Flux<BaseTransactionEvent>) compensateWhen.getBlow();
+
+				return cpWhenblow.concatMap(evt -> bubbleCache.getOrAddBubble(evt.getId(), bubbleMessage)
+						.then(businessFlow.publishSafeEvent(evt))).then();
+			}
 		}
-		return mono;
+
+		return Mono.error(x);
+
 	}
 
 	Mono<BubbleMessage> BuildBubbleMessage(WmGlobalTransaction wmg) {
@@ -135,19 +142,19 @@ public class GlobalTransactionService {
 				flatMap(bm -> findGtx(bm.getGLTX())).flatMap(wmg -> {
 					if (wmg.getStatus().equals(GlobalTransactionStatus.COMITTED)) {
 						// split to inner and outer
-						return pipeToMono(wmg, event.getPipeline());
+						return pipeToMono(wmg, event.getPipeline()).
+								onErrorResume(x->compensate(x, wmg, event.getPipeline()));
 					} else if (wmg.getStatus().equals(GlobalTransactionStatus.STARTED)) {
 						wmg.setStatus(GlobalTransactionStatus.COMITTED);
-						return template.update(wmg).then(pipeToMono(wmg, event.getPipeline()));
-					}else {
+						return template.update(wmg).then(pipeToMono(wmg, event.getPipeline())).
+								onErrorResume(x->compensate(x, wmg, event.getPipeline()));
+					} else {
 						return Mono.error(new RuntimeException("Cannot commit a rollbacked Transaction"));
 					}
-				})
-				.thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
+				}).thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
 				.as(rxtx::transactional);
 	}
-	
-	
+
 	@EventListener
 	public Mono<Void> rollback(RollBackGtx event) {
 		TransactionalOperator rxtx = TransactionalOperator.create(tm);
@@ -160,16 +167,16 @@ public class GlobalTransactionService {
 				flatMap(bm -> findGtx(bm.getGLTX())).flatMap(wmg -> {
 					if (wmg.getStatus().equals(GlobalTransactionStatus.ROLLBACKED)) {
 						// split to inner and outer
-						return pipeToMono(wmg, event.getPipeline());
+						return pipeToMono(wmg, event.getPipeline())
+								.onErrorResume(x->compensate(x, wmg, event.getPipeline()));
 					} else if (wmg.getStatus().equals(GlobalTransactionStatus.STARTED)) {
 						wmg.setStatus(GlobalTransactionStatus.ROLLBACKED);
-						return template.update(wmg).then(pipeToMono(wmg, event.getPipeline()));
-					}else {
+						return template.update(wmg).then(pipeToMono(wmg, event.getPipeline())).
+								onErrorResume(x->compensate(x, wmg, event.getPipeline()));
+					} else {
 						return Mono.error(new RuntimeException("Cannot rollback a commited Transaction"));
 					}
-				})
-				.thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
-				.as(rxtx::transactional);
+				}).thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then()).as(rxtx::transactional);
 	}
 
 }
