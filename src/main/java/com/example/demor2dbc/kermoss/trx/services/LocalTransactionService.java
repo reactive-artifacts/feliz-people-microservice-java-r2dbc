@@ -70,6 +70,7 @@ public class LocalTransactionService {
 
 	}
 
+	//TODOx refactored
 	Mono<WmLocalTransaction> newLocalTransaction(BubbleMessage bm, WorkerMeta meta) {
 		WmLocalTransaction wml = new WmLocalTransaction();
 		wml.setNew(true);
