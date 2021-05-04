@@ -50,20 +50,27 @@ public class GlobalTransactionService {
 	public Mono<Void> begin(StartGtx event) {
 		TransactionalOperator rxtx = TransactionalOperator.create(tm);
 
+		
+//TODOx (je pense pas que l'idempotence est necessaire , voir une autre fois) vérifier que l'idemptence si l'event se produit plusieur fois par le scheduler par parent gtx
+		// TODOx séparer pipeToMONO (inner/outer)
+		return Mono.defer(()->newWmGlobalTransaction(event)).flatMap(wmg -> Mono.defer(()->bubbleCache.getBubble(event.getPipeline().getIn().getId())).map(bm -> {
+			//TODOx Not yet tested case of global commit or rollback blow (event or compensate) attach gtx as parent for new global tx 
+			wmg.setParent((bm.getGLTX()!=null && bm.getPGTX()==null)?bm.getGLTX():bm.getPGTX());
+			return wmg;
+		}).defaultIfEmpty(wmg)).flatMap(wmg->template.insert(wmg).
+				then(pipeToMono(wmg, event.getPipeline()).onErrorResume(x->compensate(x, wmg, event.getPipeline()))
+						))
+				.thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
+				
+				.as(rxtx::transactional);
+	}
+	
+	Mono<WmGlobalTransaction> newWmGlobalTransaction(StartGtx event){
 		WmGlobalTransaction wmg = new WmGlobalTransaction();
 		wmg.setStatus(GlobalTransactionStatus.STARTED);
 		wmg.setName(event.getPipeline().getMeta().getTransactionName());
 		wmg.setId(UUID.randomUUID().toString());
-//TODOx (je pense pas que l'idempotence est necessaire , voir une autre fois) vérifier que l'idemptence si l'event se produit plusieur fois par le scheduler par parent gtx
-		// TODOx séparer pipeToMONO (inner/outer)
-		return Mono.just(wmg).flatMap(e -> bubbleCache.getBubble(event.getPipeline().getIn().getId()).map(bm -> {
-			//TODOx Not yet tested case of global commit or rollback blow (event or compensate) attach gtx as parent for new global tx 
-			e.setParent((bm.getGLTX()!=null && bm.getPGTX()==null)?bm.getGLTX():bm.getPGTX());
-			return e;
-		})).then(template.insert(wmg)).then(pipeToMono(wmg, event.getPipeline()))
-				.thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
-				.onErrorResume(x->compensate(x, wmg, event.getPipeline()))
-				.as(rxtx::transactional);
+		return Mono.just(wmg);
 	}
 
 	Mono<Void> pipeToMono(WmGlobalTransaction wmg, GlobalTransactionStepDefinition pipeline) {
