@@ -158,7 +158,7 @@ public class GlobalTransactionService {
 					} else {
 						return Mono.error(new RuntimeException("Cannot commit a rollbacked Transaction"));
 					}
-				}).thenEmpty(businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then())
+				}).thenEmpty(Mono.defer(()->businessFlow.consumeSafeEvent(event.getPipeline().getIn()).then()))
 				.as(rxtx::transactional);
 	}
 

@@ -29,6 +29,7 @@ import com.example.demor2dbc.kermoss.cache.BubbleCache;
 import com.example.demor2dbc.kermoss.cache.BubbleMessage;
 import com.example.demor2dbc.kermoss.entities.WmGlobalTransaction;
 import com.example.demor2dbc.kermoss.service.BusinessFlow;
+import com.example.demor2dbc.kermoss.trx.message.CommitGtx;
 import com.example.demor2dbc.kermoss.trx.message.StartGtx;
 import com.example.demor2dbc.kermoss.trx.services.GlobalTransactionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -92,6 +93,22 @@ public class GlobalTransactionServiceTest {
 		verify(tm).commit(status);
 	
 		assertEquals(pgtx,wmgCaptor.getValue().getParent());
+	}
+	
+	
+	@Test
+	public void testCommitWhenNoEventInBubbleCache() {
+		GlobalTransactionStepDefinition pipeline = pipeLineBuilder().build();
+		String pgtx = UUID.randomUUID().toString();
+		ReactiveTransaction status = mock(ReactiveTransaction.class);
+		doReturn(Mono.just(status)).when(tm).getReactiveTransaction(any());
+		doReturn(Mono.empty()).when(tm).rollback(status);
+		
+		Mono<Void> commitTx = globalTransactionServiceUnderTest.commit(new CommitGtx(pipeline));
+		StepVerifier
+		  .create(commitTx).expectError().verify();
+		verify(tm).rollback(status);
+	
 	}
 
 	private  GlobalTransactionPipelineBuilder pipeLineBuilder() {
