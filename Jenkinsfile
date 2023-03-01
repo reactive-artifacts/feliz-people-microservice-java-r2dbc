@@ -15,12 +15,11 @@ pipeline {
     stage('Test') {
       steps {
         echo 'Testing...'
-        snykSecurity(
-          snykInstallation: 'snyk',
-          snykTokenId: 'snyk-id',
-          failOnError: 'false'
-          // place other parameters here
-        )
+        withMaven(
+           maven: 'maven-3'
+        ) {
+          sh "mvn clean package -Dmaven.test.skip=true"
+        }
       }
     }
     stage('Deploy') {

@@ -167,5 +167,35 @@
 			</plugin>
 		</plugins>
 	</build>
+    <profiles>
+    <profile>
+                <id>gbom</id>
+                <build>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.cyclonedx</groupId>
+                            <artifactId>cyclonedx-maven-plugin</artifactId>
+                            <version>2.7.3</version>
+                            <configuration>
+                                <schemaVersion>1.4</schemaVersion>
+                                <includeBomSerialNumber>true</includeBomSerialNumber>
+                                <includeCompileScope>true</includeCompileScope>
+                                <includeProvidedScope>true</includeProvidedScope>
+                                <includeRuntimeScope>true</includeRuntimeScope>
+                                <includeSystemScope>true</includeSystemScope>
+                                <includeTestScope>false</includeTestScope>
+                            </configuration>
+                            <executions>
+                                <execution>
+                                    <id>generate-bom</id>
+                                    <phase>package</phase>
+                                    <goals>
+                                        <goal>makeAggregateBom</goal>
+                                    </goals>
+                                </execution>
+                            </executions>
+                        </plugin>
+              </profile>
+    </profiles>
 
 </project>
