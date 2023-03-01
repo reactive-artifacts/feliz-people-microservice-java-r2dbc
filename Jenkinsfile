@@ -18,7 +18,7 @@ pipeline {
         withMaven(
            maven: 'maven-3'
         ) {
-          sh "mvn clean package -Dmaven.test.skip=true"
+          sh "mvn clean package -P gbom -Dmaven.test.skip=true"
         }
       }
     }
