@@ -18,8 +18,12 @@ pipeline {
         withMaven(
            maven: 'maven-3'
         ) {
-          sh "mvn clean package -P gbom -Dmaven.test.skip=true"
+          sh "mvn clean package -P glom -Dmaven.test.skip=true"
         }
+  withCredentials([string(credentialsId: 'track', variable: 'API_KEY')]) {
+                    dependencyTrackPublisher artifact: 'target/bom.xml', projectName: 'feliz', projectVersion: 'my-version', synchronous: true, dependencyTrackApiKey: API_KEY, projectProperties: [tags: ['tag1', 'tag2'], swidTagId: 'my swid tag', group: 'my group', parentId: 'parent-uuid']
+                }
+
       }
     }
     stage('Deploy') {
