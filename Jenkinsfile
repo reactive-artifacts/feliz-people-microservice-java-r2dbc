@@ -21,7 +21,7 @@ pipeline {
           sh "mvn clean package -P gbom -Dmaven.test.skip=true"
         }
   withCredentials([string(credentialsId: 'track', variable: 'API_KEY')]) {
-                    dependencyTrackPublisher artifact: 'target/bom.xml', projectName: 'feliz', projectVersion: 'my-version', synchronous: true, dependencyTrackApiKey: API_KEY, projectProperties: [tags: ['tag1', 'tag2'], swidTagId: 'my swid tag', group: 'my group',synchronous: true, failedTotalCritical: 2, failedTotalHigh: 2, failedTotalLow: 2, failedTotalMedium: 2,unstableTotalCritical: 1, unstableTotalHigh: 1, unstableTotalLow: 1, unstableTotalMedium: 1]
+                    dependencyTrackPublisher artifact: 'target/bom.xml', projectName: 'feliz', projectVersion: 'my-version',synchronous: true, failedTotalCritical: 2, failedTotalHigh: 2, failedTotalLow: 2, failedTotalMedium: 2,unstableTotalCritical: 1, unstableTotalHigh: 1, unstableTotalLow: 1, unstableTotalMedium: 1, dependencyTrackApiKey: API_KEY, projectProperties: [tags: ['tag1', 'tag2'], swidTagId: 'my swid tag', group: 'my group']
                 }
 
       }
